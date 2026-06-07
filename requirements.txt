@@ -1,0 +1,10 @@
+Flask-Login==0.6.3
+Flask-Migrate==4.0.7
+flask-caching==2.3.0
+flask_socketio==5.5.1
+flask_assets==2.1.0
+gunicorn==23.0.0
+eventlet==0.40.3
+requests==2.32.5
+cssmin==0.2.0
+rjsmin==1.2.5

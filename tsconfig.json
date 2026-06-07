@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"es6","lib":["dom","es2021"],"module":"es6","outDir":"./project/static/js","rootDir":"./project/static/ts","strict":true,"esModuleInterop":true,"skipLibCheck":true,"forceConsistentCasingInFileNames":true,"declaration":false,"sourceMap":false},"include":["project/static/ts/**/*.ts"],"exclude":["node_modules"]}

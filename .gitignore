@@ -1,0 +1,13 @@
+# Ignore pycache
+__pycache__/
+
+# Ignore databases
+db.sqlite3
+db.sqlite3-journal
+
+# Environment variables
+.env
+
+# Caching
+.webassets-cache/
+gen/
