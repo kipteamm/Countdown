@@ -20,16 +20,17 @@ def auth():
     # Anyonmous user
     if not email:
         id = random.randint(100000, 999999)
-        user = AnonymousUser(
-            f"a_{id}",
-            f"Anonymous{id}"
-        )
+        user = AnonymousUser(f"Anonymous{id}")
 
         login_user(user)
-        cache.set(user.id, user.serialize(), timeout=24 * 60 * 60)
+        cache.set(user.id, user.serialize(), timeout=2 * 60 * 60)
 
-        return redirect("/l")
+        response = redirect("/l")
+        response.set_cookie("ut", user.id)
+
+        return response
     
     # Actual user (do later)
+    # cache.set(user.id, user.serialize(), timeout=24 * 60 * 60)
 
     return redirect("/l")

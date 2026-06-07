@@ -1,0 +1,27 @@
+{% block static %}
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+    {% assets "game_js" %}
+        <script>
+            const PLAYER = {{ current_user.serialize_player()|tojson|safe }};
+            const GAME = {{ room.serialize_game()|tojson|safe }};
+
+        </script>
+        <script src="{{ ASSET_URL }}"></script>
+    {% endassets %}
+{% endblock %}
+
+{% block content %}
+    Invite people with code <b>{{ room.id }}</b> <br>
+    Or with link <a href="#" onclick="navigator.clipboard.writeText(this.innerText);alert('Link copied to clipboard!');return false;">{{ request.scheme }}://{{ request.host }}/l?id={{ room.id }}</a>
+    <ul id="players">
+        {% for player in room.players %}
+            <li>{{ player.name }}{% if player.id == current_user.id %} (You){% endif %}</li>
+        {% endfor %}
+
+        {% if current_user.id == room.creator.id %}
+            <button onclick="game.notifyReady()" disabled>Start</button>
+        {% endif %}
+    </ul>
+
+{% endblock %}

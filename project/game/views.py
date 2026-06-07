@@ -2,7 +2,7 @@ from project.auth.models import AnonymousUser
 from project.game.models import Room
 
 from flask_login import current_user, login_required
-from flask import Blueprint, render_template, redirect, request, flash
+from flask import Blueprint, render_template, redirect, request, flash, make_response
 
 
 game_blueprint = Blueprint("game", __name__)
@@ -25,14 +25,12 @@ def lobby():
     room_id = request.args.get("id", "")
     room = Room.get(room_id)
 
-    print(room_id, room)
-
     if room and (user.room_id == room_id or user.room_id == None):
         room.add_player(user)
         room.save()
         user.save()
 
-        return render_template("game/waiting.html", room=room)
+        return redirect("/g/" + room.id)
 
     # Regular get request, if user is in a existing room, redirect them, 
     # otherwise prompt them to lobby
@@ -48,12 +46,12 @@ def lobby():
 
             return render_template("game/lobby.html")
 
-        return render_template("game/waiting.html", room=room)
+        return redirect("/g/" + room.id)
     
     if user.room_id:
         room = Room.get(user.room_id)
         if room:
-            return render_template("game/waiting.html", room=room)
+            return redirect("/g/" + room.id)
         
         user.room_id = None
 
@@ -66,7 +64,7 @@ def lobby():
         user.room_id = room.id
         user.save()
 
-        return render_template("game/waiting.html", room=room)
+        return redirect("/g/" + room.id)
 
     room = Room.get(room_id)
     if not room:
@@ -77,13 +75,20 @@ def lobby():
     room.save()
     user.save()
 
-    return render_template("game/waiting.html", room=room)
+    return redirect("/g/" + room.id)
 
 
-@game_blueprint.get("/g/<int:id>")
+@game_blueprint.get("/g/<string:id>")
 @login_required
-def game(id: int):
+def game(id: str):
     user: AnonymousUser = current_user # type: ignore
     if not user.room_id == id: return redirect("/l")
 
-    return render_template("game/index.html")
+    room = Room.get(id)
+    if not room:
+        user.room_id = None
+        user.save()
+
+        return redirect("/l")
+
+    return render_template("game/game.html", room=room)

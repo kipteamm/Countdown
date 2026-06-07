@@ -34,13 +34,10 @@ def create_app() -> Flask:
 
     @login_manager.user_loader
     def load_user(user_id: str):
-        if user_id.startswith("a_"):
-            user = cache.get(user_id)
-            if not user: return None
-
-            return AnonymousUser.from_cache(user)
+        user = cache.get(user_id)
+        if not user: return None
         
-        return User.query.get(user_id)
+        return AnonymousUser.from_cache(user)
     
 
     @login_manager.unauthorized_handler
