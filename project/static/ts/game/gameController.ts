@@ -29,7 +29,15 @@ interface GameData {
 }
 
 interface NewRound {
+    round_number: number;
+    game_mode: number; 
+    starting_team: number;
+    starting_player: string;
 
+    player_11: string;
+    player_12: string | null;
+    player_21: string;
+    player_22: string | null;
 }
 
 
@@ -46,15 +54,26 @@ function getCookie(name: string) {
 }
 
 
+enum GameState {
+    WAITING,
+    NEW_ROUND
+}
+
+function _toState(name: string): GameState {
+    if (name === "waiting") return GameState.WAITING;
+    if (name === "new-round") return GameState.NEW_ROUND;
+    throw new TypeError(name);
+}
+
+
 class GameController {
     private players: HTMLElement;
+    private stateParents: Record<GameState, HTMLElement> = {} as Record<GameState, HTMLElement>;
 
     constructor() {
-        socket.on("connect", () => {
-            console.log("CONNECTED");
-            if (isHost) return; 
-
-            this.notifyReady();
+        document.querySelectorAll(".state").forEach((elm) => {
+            const HTMLelm = (elm as HTMLElement)
+            this.stateParents[_toState(HTMLelm.dataset.state!)] = HTMLelm;
         });
 
         // Player management
@@ -62,12 +81,20 @@ class GameController {
         socket.on("player_join", (player: PlayerData) => this.playerJoin(player));
         socket.on("player_leave", (player: PlayerData) => this.playerLeave(player));
 
-        socket.on("new_round", (data: NewRound) => this.newRound(data))
+        // Rounds
+        socket.on("round_new", (data: NewRound) => this.newRound(data))
+
+        socket.on("connect", () => {
+            console.log("CONNECTED");
+            if (isHost) return; 
+
+            this.notifyReady();
+        });
     }
 
     private notifyReady(): void {
         console.log("READY");
-        socket.emit("ready", GAME.token);
+        socket.emit("ready", getCookie("ut")!);
     }
 
     private playerJoin(player: PlayerData): void {
@@ -101,7 +128,7 @@ class GameController {
 
 
     private newRound(data: NewRound): void {
-
+        console.log(data);
     }
 }
 

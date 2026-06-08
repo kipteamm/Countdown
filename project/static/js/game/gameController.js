@@ -9,23 +9,41 @@ function getCookie(name) {
     }
     return null;
 }
+var GameState;
+(function (GameState) {
+    GameState[GameState["WAITING"] = 0] = "WAITING";
+    GameState[GameState["NEW_ROUND"] = 1] = "NEW_ROUND";
+})(GameState || (GameState = {}));
+function _toState(name) {
+    if (name === "waiting")
+        return GameState.WAITING;
+    if (name === "new-round")
+        return GameState.NEW_ROUND;
+    throw new TypeError(name);
+}
 class GameController {
     constructor() {
+        this.stateParents = {};
+        document.querySelectorAll(".state").forEach((elm) => {
+            const HTMLelm = elm;
+            this.stateParents[_toState(HTMLelm.dataset.state)] = HTMLelm;
+        });
+        // Player management
+        this.players = document.getElementById("players");
+        socket.on("player_join", (player) => this.playerJoin(player));
+        socket.on("player_leave", (player) => this.playerLeave(player));
+        // Rounds
+        socket.on("round_new", (data) => this.newRound(data));
         socket.on("connect", () => {
             console.log("CONNECTED");
             if (isHost)
                 return;
             this.notifyReady();
         });
-        // Player management
-        this.players = document.getElementById("players");
-        socket.on("player_join", (player) => this.playerJoin(player));
-        socket.on("player_leave", (player) => this.playerLeave(player));
-        socket.on("new_round", (data) => this.newRound(data));
     }
     notifyReady() {
         console.log("READY");
-        socket.emit("ready", GAME.token);
+        socket.emit("ready", getCookie("ut"));
     }
     playerJoin(player) {
         console.log(player);
@@ -52,6 +70,7 @@ class GameController {
         `;
     }
     newRound(data) {
+        console.log(data);
     }
 }
 const socket = io("", {

@@ -23,7 +23,7 @@ def auth():
         user = AnonymousUser(f"Anonymous{id}")
 
         login_user(user)
-        cache.set(user.id, user.serialize(), timeout=2 * 60 * 60)
+        user.save()
 
         response = redirect("/l")
         response.set_cookie("ut", user.id)
@@ -31,6 +31,6 @@ def auth():
         return response
     
     # Actual user (do later)
-    # cache.set(user.id, user.serialize(), timeout=24 * 60 * 60)
+    # user.save()
 
     return redirect("/l")

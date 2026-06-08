@@ -21,20 +21,32 @@ def register_events(socketio: SocketIO):
 
         if not user: return
         playing_users[user.id] = user
+
+        join_room(user.room_id)
+        
+
+    @socketio.on("disconnect")
+    def handle_disconnect():
+        pass
+    
+
+    @socketio.on("ready")
+    def handle_ready(token: str):
+        user: AnonymousUser | None = AnonymousUser.get(token)
+        if not user: return
+
         user.ready = True
         user.save()
 
-        join_room(user.room_id)
         room = Room.get(user.room_id)
 
         if not room: return print("IMPOSSIBLE")
 
+        print(room.players)
         for player in room.players:
+            print(player.serialize())
             if not player.ready: return
 
-        socketio.emit("new_round", to=room.id)
-
-    
-    @socketio.on("disconnect")
-    def handle_disconnect():
-        pass
+        room.start()
+        room.next_round()
+        room.save()

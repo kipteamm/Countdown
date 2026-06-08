@@ -28,8 +28,16 @@ class AnonymousUser(UserMixin):
         self.id = secrets.token_urlsafe(64)
         self.username = username
 
+    @t.overload
     @classmethod
-    def get(cls, token: str) -> "AnonymousUser | None":
+    def get(cls, token: str) -> "AnonymousUser | None": ...
+
+    @t.overload
+    @classmethod
+    def get(cls, token: str, certain: t.Literal[True]) -> "AnonymousUser": ...
+
+    @classmethod
+    def get(cls, token: str, certain: bool = False) -> "AnonymousUser | None":
         user = cache.get(token)
         if not user: return
 
@@ -37,10 +45,9 @@ class AnonymousUser(UserMixin):
 
     @classmethod
     def from_cache(cls, data: AnonymousUserDict) -> "AnonymousUser":
-        user = cls(data["username"])
+        user = cls.__new__(cls)
 
         for key, value in data.items():
-            if key == "username": continue
             setattr(user, key, value)
 
         return user
