@@ -11,6 +11,12 @@ function getCookie(name) {
 }
 class GameController {
     constructor() {
+        socket.on("connect", () => {
+            console.log("CONNECTED");
+            if (isHost)
+                return;
+            this.notifyReady();
+        });
         // Player management
         this.players = document.getElementById("players");
         socket.on("player_join", (player) => this.playerJoin(player));
@@ -18,7 +24,7 @@ class GameController {
         socket.on("new_round", (data) => this.newRound(data));
     }
     notifyReady() {
-        console.log("THIS CLIENT READY");
+        console.log("READY");
         socket.emit("ready", GAME.token);
     }
     playerJoin(player) {
@@ -33,6 +39,7 @@ class GameController {
         this.updatePlayers();
     }
     updatePlayers() {
+        console.log(GAME.players);
         this.players.innerHTML = "";
         GAME.players.forEach(player => {
             this.players.innerHTML += `<li>${player.username}${player.player_id === PLAYER.player_id ? " (You)" : ""}</li>`;
@@ -46,13 +53,10 @@ class GameController {
 }
 const socket = io("", {
     transports: ["websocket"],
-    auth: { token: getCookie("ut"), game: true },
+    auth: { token: getCookie("ut") },
 });
 const isHost = GAME.creator.player_id === PLAYER.player_id;
 let game;
 window.addEventListener("load", () => {
     game = new GameController();
-    if (isHost)
-        return;
-    game.notifyReady();
 });

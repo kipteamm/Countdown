@@ -49,6 +49,13 @@ class GameController {
     private players: HTMLElement;
 
     constructor() {
+        socket.on("connect", () => {
+            console.log("CONNECTED");
+            if (isHost) return; 
+
+            this.notifyReady();
+        });
+
         // Player management
         this.players = document.getElementById("players")!;
         socket.on("player_join", (player: PlayerData) => this.playerJoin(player));
@@ -57,8 +64,8 @@ class GameController {
         socket.on("new_round", (data: NewRound) => this.newRound(data))
     }
 
-    notifyReady(): void {
-        console.log("THIS CLIENT READY");
+    private notifyReady(): void {
+        console.log("READY");
         socket.emit("ready", GAME.token);
     }
 
@@ -76,6 +83,8 @@ class GameController {
     }
 
     private updatePlayers(): void {
+        console.log(GAME.players);
+
         this.players.innerHTML = "";
         GAME.players.forEach(player => {
             this.players.innerHTML += `<li>${player.username}${player.player_id === PLAYER.player_id? " (You)": ""}</li>`;
@@ -94,14 +103,11 @@ class GameController {
 
 const socket: Socket = io("", {
     transports: ["websocket"],
-    auth: { token: getCookie("ut"), game: true },
+    auth: { token: getCookie("ut") },
 });
 
 const isHost = GAME.creator.player_id === PLAYER.player_id;
 let game: GameController;
 window.addEventListener("load", () => {
     game = new GameController();
-    
-    if (isHost) return;
-    game.notifyReady();
 });

@@ -17,7 +17,7 @@ def register_events(socketio: SocketIO):
             token = auth["token"]
 
         if not token: return
-        user: AnonymousUser | None = cache.get(token)
+        user: AnonymousUser | None = AnonymousUser.get(token)
 
         if not user: return
         playing_users[user.id] = user

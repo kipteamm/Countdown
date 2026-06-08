@@ -9,7 +9,7 @@ import secrets
 
 class AnonymousUserDict(t.TypedDict):
     id: str
-    name: str
+    username: str
 
     player_id: int | None
     room_id: str | None
@@ -18,22 +18,29 @@ class AnonymousUserDict(t.TypedDict):
 
 class AnonymousUser(UserMixin):
     id: str
-    name: str
+    username: str
 
     player_id: int | None = None
     room_id: str | None = None
     ready: bool = False
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, username: str) -> None:
         self.id = secrets.token_urlsafe(64)
-        self.name = name
+        self.username = username
+
+    @classmethod
+    def get(cls, token: str) -> "AnonymousUser | None":
+        user = cache.get(token)
+        if not user: return
+
+        return cls.from_cache(user)
 
     @classmethod
     def from_cache(cls, data: AnonymousUserDict) -> "AnonymousUser":
-        user = cls(data["name"])
+        user = cls(data["username"])
 
         for key, value in data.items():
-            if key == "name": continue
+            if key == "username": continue
             setattr(user, key, value)
 
         return user
@@ -44,7 +51,7 @@ class AnonymousUser(UserMixin):
     def serialize(self) -> AnonymousUserDict:
         return {
             "id": self.id,
-            "name": self.name,
+            "username": self.username,
             "player_id": self.player_id,
             "room_id": self.room_id,
             "ready": self.ready
@@ -53,13 +60,13 @@ class AnonymousUser(UserMixin):
     def serialize_player(self) -> dict[str, int | str]:
         assert self.player_id != None, "IMPOSSIBLE"
         return {
-            "player_id": self.player_id, "name": self.name
+            "player_id": self.player_id, "username": self.username
         }
 
 
 class User(db.Model, AnonymousUser): 
     id = db.Column(db.String(128), primary_key=True)
-    name = db.Column(db.String(30))
+    username = db.Column(db.String(30))
     email: Mapped[str] = mapped_column(unique=True)
 
     def save(self) -> None:

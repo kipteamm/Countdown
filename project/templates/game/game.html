@@ -16,7 +16,7 @@
     Or with link <a href="#" onclick="navigator.clipboard.writeText(this.innerText);alert('Link copied to clipboard!');return false;">{{ request.scheme }}://{{ request.host }}/l?id={{ room.id }}</a>
     <ul id="players">
         {% for player in room.players %}
-            <li>{{ player.name }}{% if player.id == current_user.id %} (You){% endif %}</li>
+            <li>{{ player.username }}{% if player.id == current_user.id %} (You){% endif %}</li>
         {% endfor %}
 
         {% if current_user.id == room.creator.id %}

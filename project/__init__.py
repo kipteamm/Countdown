@@ -1,4 +1,5 @@
-from project.auth.models import AnonymousUser, User
+from project.game.events import register_events
+from project.auth.models import AnonymousUser
 from project.extensions import db, socketio, cache
 from project.game.views import game_blueprint
 from project.auth.views import auth_blueprint
@@ -8,7 +9,7 @@ from project.assets import assets
 
 from flask_migrate import Migrate
 from flask_login import LoginManager
-from flask import Flask, request, redirect
+from flask import Flask, redirect
 
 
 def create_app() -> Flask:
@@ -30,7 +31,7 @@ def create_app() -> Flask:
     cache.init_app(app)
     db.init_app(app)
 
-    # register_events(socketio)
+    register_events(socketio)
 
     @login_manager.user_loader
     def load_user(user_id: str):
