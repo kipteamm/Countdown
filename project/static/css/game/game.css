@@ -1,0 +1,6 @@
+.state {
+    display: none;
+}
+.state.active {
+    display: block;
+}

@@ -9,19 +9,38 @@
         </script>
         <script src="{{ ASSET_URL }}"></script>
     {% endassets %}
+
+    {% assets "game_css" %}
+        <link rel="stylesheet" href="{{ ASSET_URL }}">
+    {% endassets %}
 {% endblock %}
 
 {% block content %}
-    Invite people with code <b>{{ room.id }}</b> <br>
-    Or with link <a href="#" onclick="navigator.clipboard.writeText(this.innerText);alert('Link copied to clipboard!');return false;">{{ request.scheme }}://{{ request.host }}/l?id={{ room.id }}</a>
-    <ul id="players">
-        {% for player in room.players %}
-            <li>{{ player.username }}{% if player.id == current_user.id %} (You){% endif %}</li>
-        {% endfor %}
-
-        {% if current_user.id == room.creator.id %}
-            <button onclick="game.notifyReady()" disabled>Start</button>
+    <div class="state{% if room.state.value == 0 %} active{% endif %}" data-state="waiting">
+        Invite people with code <b>{{ room.id }}</b> <br>
+        Or with link <a href="#" onclick="navigator.clipboard.writeText(this.innerText);alert('Link copied to clipboard!');return false;">{{ request.scheme }}://{{ request.host }}/l?id={{ room.id }}</a>
+        <ul id="players">
+            <b>All players</b>
+            {% for player in room.players %}
+                <li>{{ player.username }}{% if player.id == current_user.id %} (You){% endif %}</li>
+            {% endfor %}
+    
+            {% if current_user.id == room.creator.id %}
+                <button onclick="game.notifyReady()"{% if room.players|length < room.team_size * 2 %} disabled{% endif %}>Start</button>
+            {% endif %}
+        </ul>
+    
+        {% if room.team_size == 2 %}
+            <ul id="team-1">
+                <b>Team 1</b>
+            </ul>
+            <ul id="team-2">
+                <b>Team 2</b>
+            </ul>
         {% endif %}
-    </ul>
+    </div>
 
+    <div class="state" data-state="new-round"></div>
+    <div class="state" data-state="numbers-round"></div>
+    <div class="state" data-state="letters-round"></div>
 {% endblock %}

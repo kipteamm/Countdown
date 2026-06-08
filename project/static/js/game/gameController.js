@@ -46,7 +46,10 @@ class GameController {
         });
         if (!isHost)
             return;
-        this.players.innerHTML += `<button onclick="game.notifyReady()"${GAME.players.length === 4 ? "" : " disabled"}>Start</button>`;
+        const canStart = GAME.players.length === GAME.team_size * 2;
+        this.players.innerHTML += `
+            <button onclick="game.notifyReady()"${canStart ? "" : " disabled"}>${!canStart && GAME.team_size === 2 ? "Start with random teams" : "Start"}</button>
+        `;
     }
     newRound(data) {
     }

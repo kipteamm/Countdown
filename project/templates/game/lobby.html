@@ -4,6 +4,11 @@
 <form method="POST">
     <input type="text" placeholder="000000" name="id">
     <button type="submit">Join room</button>
+    <hr>
+    <label for="1v1">1v1</label>
+    <input type="radio" id="1v1" name="mode" value="1v1" checked>
+    <label for="1v1">2v2</label>
+    <input type="radio" id="2v2" name="mode" value="2v2">
     <button type="submit">Create room</button>
 </form>
 {% endblock %}

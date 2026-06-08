@@ -26,11 +26,12 @@ def lobby():
     room = Room.get(room_id)
 
     if room and (user.room_id == room_id or user.room_id == None):
-        room.add_player(user)
+        added = room.add_player(user)
         room.save()
         user.save()
 
-        return redirect("/g/" + room.id)
+        if added:
+            return redirect("/g/" + room.id)
 
     # Regular get request, if user is in a existing room, redirect them, 
     # otherwise prompt them to lobby
@@ -59,7 +60,8 @@ def lobby():
 
     # Create room
     if not room_id:
-        room = Room(user)
+        team_size = 1 if request.form.get("mode") == "1v1" else 2
+        room = Room(team_size, user)
 
         user.room_id = room.id
         user.save()
