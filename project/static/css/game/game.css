@@ -1,6 +1,64 @@
+body {
+    margin: 0;
+    background-image: url("/static/images/background.avif");
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: white;
+}
+
 .state {
     display: none;
+
+    [data-state="waiting"] {
+        max-width: 800px;
+        margin: 0 auto;
+    }
 }
 .state.active {
+    display: block;
+}
+
+.board {
+    background: linear-gradient(#4c62a7, #384792);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+
+    .target {
+        border: 4px solid #182b54;
+        background: #0100c4;
+        padding: 10px;
+        font-size: 60px;
+        font-weight: bold;
+        width: 185px;
+        text-align: center;
+    }
+
+    .entities {
+        border: 4px solid #182b54;
+        gap: 6px;
+        display: flex;
+        background: #2360ac;
+        padding: 2px;
+        height: 60px;
+    }
+
+    .entity {
+        background: #1e3792;
+        font-weight: bold;
+        font-size: 30px;
+        width: 60px;
+        height: 60px;
+        line-height: 60px;
+        text-align: center;
+    }
+
+    .options {
+        display: none;
+    }
+}
+
+.starting .options {
     display: block;
 }

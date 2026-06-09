@@ -10,7 +10,7 @@ playing_users = {}
 
 
 def start_next_round(room: RoomDict) -> None:
-    socketio.sleep(20)
+    socketio.sleep(15)
 
     socketio.emit("round_start", room["round"], to=room["id"])
 
@@ -62,8 +62,25 @@ def register_events(socketio: SocketIO):
         for player in room.players:
             if not player.ready: return
 
+        if room.state != GameState.WAITING: return
+
         room.start()
         room.prepare_next_round()
         room.save()
 
         socketio.start_background_task(start_next_round, room.serialize())
+
+
+    @socketio.on("round_pick")
+    def handle_pick(data: dict):
+        user: AnonymousUser | None = AnonymousUser.get(data["token"])
+        if not user: return
+
+        room = Room.get(user.room_id)
+        if not room: return
+        if room.round["starting_player"] != user.player_id: return
+
+        room.pick(data["type"])
+        room.save()
+
+        socketio.emit("round_entity", room.round["game_data"], to=room.id)

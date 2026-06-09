@@ -1,5 +1,5 @@
 from project.auth.models import AnonymousUser
-from project.game.models import Room
+from project.game.models import Room, GameState
 
 from flask_login import current_user, login_required
 from flask import Blueprint, render_template, redirect, request, flash, make_response
@@ -14,6 +14,19 @@ def index():
         return redirect("/auth")
     
     return redirect("/l")
+
+
+@game_blueprint.get("/test")
+def test():
+    if current_user.is_anonymous:
+        return redirect("/auth")
+
+    current_user.player_id = -1
+
+    room = Room(1, current_user)
+    room.state = GameState.ROUND_LETTERS
+
+    return render_template("game/game.html", room=room)
 
 
 @game_blueprint.route("/l", methods=["GET", "POST"])

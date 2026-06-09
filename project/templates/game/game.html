@@ -41,7 +41,26 @@
     </div>
 
     <div class="state" data-state="round-new"></div>
-    <div class="state" data-state="round-letters"></div>
-    <div class="state" data-state="round-numbers"></div>
+    <div class="state{% if room.state.value == 2 %} active{% endif %}" data-state="round-letters">
+        <div class="board">
+            <div class="entities" style="width:588px;" id="letter-entities"></div>
+    
+            <div class="options">
+                <button onclick="game.roundPick(1, this)">Vowel</button>
+                <button onclick="game.roundPick(0, this)">Consonant</button>
+            </div>
+        </div>
+    </div>
+    <div class="state{% if room.state.value == 3 %} active{% endif %}" data-state="round-numbers">
+        <div class="board">
+            <div class="target" id="number-target">XXX</div>
+            <div class="entities" style="width:390px;" id="number-entities"></div>
+
+            <div class="options">
+                <button onclick="game.roundPick(1, this)">Large</button>
+                <button onclick="game.roundPick(0, this)">Small</button>
+            </div>
+        </div>
+    </div>
     <div class="state" data-state="round-conundrum"></div>
 {% endblock %}

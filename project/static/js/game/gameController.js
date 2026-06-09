@@ -31,16 +31,20 @@ function _toState(name) {
     throw new TypeError(name);
 }
 function playerName(id) {
-    GAME.players.forEach(player => {
-        if (player.player_id === id)
-            return player.username;
-    });
+    for (const player of GAME.players) {
+        if (player.player_id !== id)
+            continue;
+        return player.username;
+    }
     throw new TypeError(id.toString());
 }
 class GameController {
     constructor() {
         this.stateParents = {};
         this.state = GameState.WAITING;
+        this.btn = null;
+        this.entities = null;
+        this.gameData = null;
         document.querySelectorAll(".state").forEach((elm) => {
             const HTMLelm = elm;
             this.stateParents[_toState(HTMLelm.dataset.state)] = HTMLelm;
@@ -51,6 +55,8 @@ class GameController {
         socket.on("player_leave", (player) => this.playerLeave(player));
         // Rounds
         socket.on("round_new", (data) => this.newRound(data));
+        socket.on("round_start", (data) => this.roundStart(data));
+        socket.on("round_entity", (data) => this.roundEntity(data));
         socket.on("connect", () => {
             console.log("CONNECTED");
             if (isHost)
@@ -113,13 +119,58 @@ class GameController {
                 <h2>${playerName(data.starting_player)} has to pick the numbers.</h2>
                 <b>This game is played by ${everyone ? "everyone" : `${playerName(data.player_11)} and ${playerName(data.player_21)}`}.</b>
                 <p>
-                    ${playerName(data.starting_player)} has the choice to pick 6 numbers out of any row.
-                    The top row are big numbers, the rest are random small ones. At least one big
-                    number must be picked.
+                    ${playerName(data.starting_player)} has to pick 6 random numbers.
+                    Large numbers consist of 25, 50, 75 and 100, and small numbers are 1 through 10.
+                    A random target will be given which you will have to reach by using only ×, +, - and ÷.
                 <p>
             `;
         }
+        this.updateState(GameState.ROUND_NEW);
+    }
+    roundStart(data) {
+        const isLetters = data.game_mode === 0;
+        const state = isLetters ? GameState.ROUND_LETTERS : GameState.ROUND_NUMBERS;
+        console.log(data);
+        this.gameData = data.game_data;
         this.updateState(state);
+        // Make options available to starting player
+        if (data.starting_player !== PLAYER.player_id)
+            return;
+        this.stateParents[this.state].classList.add("starting");
+    }
+    roundEntity(data) {
+        this.entities = (this.entities || document.getElementById((this.state === GameState.ROUND_LETTERS ? "letter" : "number") + "-entities"));
+        if (this.state === GameState.ROUND_LETTERS) {
+            for (const letter of data.letters) {
+                //@ts-ignore
+                if (this.gameData.letters.includes(letter))
+                    continue;
+                this.entities.innerHTML += `<div class="entity">${letter}</div>`;
+            }
+        }
+        else {
+            for (const number of data.small) {
+                //@ts-ignore
+                if (this.gameData.letters.includes(number))
+                    continue;
+                this.entities.innerHTML += `<div class="entity">${number}</div>`;
+            }
+            for (const number of data.small) {
+                //@ts-ignore
+                if (this.gameData.letters.includes(number))
+                    continue;
+                this.entities.innerHTML += `<div class="entity">${number}</div>`;
+            }
+        }
+        this.gameData = data;
+        if (!this.btn)
+            return;
+        this.btn.disabled = false;
+    }
+    roundPick(type, btn) {
+        this.btn = btn;
+        this.btn.disabled = true;
+        socket.emit("round_pick", { token: getCookie("ut"), type: type });
     }
 }
 const socket = io("", {

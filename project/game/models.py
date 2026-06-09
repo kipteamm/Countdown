@@ -20,12 +20,12 @@ class RoundDict(t.TypedDict):
     game_mode: int      # 0 is letters 1 is numbers
     starting_team: int
     starting_player: int
+    game_data: dict[str, list] | None
 
     player_11: int
     player_12: int | None
     player_21: int
     player_22: int | None
-    game_data: dict | None
 
 
 class RoomDict(t.TypedDict):
@@ -41,6 +41,14 @@ class RoomDict(t.TypedDict):
     player_ids: list[str]
     team_1_ids: list[str]
     team_2_ids: list[str]
+
+
+VOWELS_LOOKUP = {'a', 'e', 'i', 'o', 'u'}
+VOWELS = list("AAAAAEEEEEEEEIIIIIOOOOOOUUU")
+CONSONANTS = list("BBCCDDDDFFGGGHHJKLLLLMMNNNNNPPQRRRRRRSSSSSSTTTTTTVVWWXYZ")
+
+LARGE_NUMBERS = [25, 50, 75, 100]
+SMALL_NUMBERS = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10]
 
 
 class Room:
@@ -153,13 +161,21 @@ class Room:
 
     def _letters_round(self) -> dict:
         return {
-            "letters": []
+            "letters": [],
+            # We use weighted distributions as the real game does, in order to
+            # somewhat control the random outcomes.
+            "VOWELS": random.sample(VOWELS, len(VOWELS)),
+            "CONSONANTS": random.sample(CONSONANTS, len(CONSONANTS)),
         }
     
     def _numbers_round(self) -> dict:
         return {
             "large": [],
-            "small": []
+            "small": [],
+            # We use weighted distributions as the real game does, in order to
+            # somewhat control the random outcomes.
+            "LARGE": random.sample(LARGE_NUMBERS, len(LARGE_NUMBERS)),
+            "SMALL": random.sample(SMALL_NUMBERS, len(SMALL_NUMBERS))
         }
 
     def _all_round(self) -> None:
@@ -194,16 +210,16 @@ class Room:
         # This depends on whether is a 1v1 or a 2v2
         # In a 1v1 this is more of the same, in a 2v2 these are two random rounds
         # where two different opponents face each other
-        if self.round_number < 4:
+        elif self.round_number < 4:
             if self.team_size == 1: self._all_round()
             else: self._specific_round()
 
         # This depends on whether it is a 1v1 or a 2v2
         # 1v1 ends here with a conundrum, 2v2 continues with anohter general round
-        if self.team_size == 1:
+        elif self.team_size == 1:
             return self._conundrum()
 
-        if self.round_number < 6:
+        elif self.round_number < 6:
             self._all_round()
 
         else:
@@ -211,9 +227,55 @@ class Room:
 
         if self.round["game_mode"] == 0:
             self.round["game_data"] = self._letters_round()
+            return
 
         if self.round["game_mode"] == 1:
             self.round["game_data"] = self._numbers_round()
+            return
+
+
+    def pick(self, type: int) -> None:
+        assert self.round["game_data"] != None, "whut"
+
+        if self.round["game_mode"] == 0:
+            letters = self.round["game_data"]["letters"]
+
+            total = len(letters)
+            vowels = sum(1 for string in letters for char in string if char in VOWELS_LOOKUP)
+            consonants = total - vowels
+
+            if type == 1:
+                if vowels == 5: return
+                if (9 - total) == (4 - consonants): return
+
+                letters.append(self.round["game_data"]["VOWELS"].pop())
+
+            else:
+                if consonants == 6: return
+                if (9 - total) == (3 - vowels): return
+
+                letters.append(self.round["game_data"]["CONSONANTS"].pop())
+
+        
+        elif self.round["game_mode"] == 1:
+            if len(self.round["game_data"]["large"]) + len(self.round["game_data"]["small"]) == 6: return
+
+            large_picked = len(self.round["game_data"]["large"])
+            small_picked = len(self.round["game_data"]["small"])
+
+            if (large_picked + small_picked) == 6: return
+
+            if type == 1:
+                if large_picked == 4: return
+
+                number = self.round["game_data"]["LARGE"].pop()
+                self.round["game_data"]["large"].append(number)
+
+            else:
+                if small_picked == 6: return
+
+                number = self.round["game_data"]["SMALL"].pop()
+                self.round["game_data"]["small"].append(number)
 
 
     def save(self) -> None:
