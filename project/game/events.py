@@ -1,12 +1,29 @@
 from project.auth.models import AnonymousUser
-from project.game.models import Room
-from project.extensions import cache
+from project.game.models import Room, RoomDict, GameState
+from project.extensions import socketio, cache
 
 from flask_socketio import SocketIO, join_room, leave_room
 from flask import request
 
 
 playing_users = {}
+
+
+def start_next_round(room: RoomDict) -> None:
+    socketio.sleep(20)
+
+    socketio.emit("round_start", room["round"], to=room["id"])
+
+    if room["round"]["game_mode"] == 0:
+        room["state"] = GameState.ROUND_LETTERS.name
+    
+    elif room["round"]["game_mode"] == 1:
+        room["state"] = GameState.ROUND_NUMBERS.name
+    
+    else:
+        room["state"] = GameState.ROUND_CONUNDRUM.name
+    
+    cache.set(room["id"], room, timeout=2 * 60 * 60)
 
 
 def register_events(socketio: SocketIO):
@@ -42,11 +59,11 @@ def register_events(socketio: SocketIO):
 
         if not room: return print("IMPOSSIBLE")
 
-        print(room.players)
         for player in room.players:
-            print(player.serialize())
             if not player.ready: return
 
         room.start()
-        room.next_round()
+        room.prepare_next_round()
         room.save()
+
+        socketio.start_background_task(start_next_round, room.serialize())

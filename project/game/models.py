@@ -9,18 +9,23 @@ import random
 
 class GameState(e.Enum):
     WAITING = 0
+    ROUND_NEW = 1
+    ROUND_LETTERS = 2
+    ROUND_NUMBERS = 3
+    ROUND_CONUNDRUM = 4
 
 
 class RoundDict(t.TypedDict):
     round_number: int
     game_mode: int      # 0 is letters 1 is numbers
     starting_team: int
-    starting_player: str
+    starting_player: int
 
     player_11: int
     player_12: int | None
     player_21: int
     player_22: int | None
+    game_data: dict | None
 
 
 class RoomDict(t.TypedDict):
@@ -30,6 +35,7 @@ class RoomDict(t.TypedDict):
 
     state: str
     round_number: int
+    round: RoundDict
 
     creator_id: str
     player_ids: list[str]
@@ -58,6 +64,8 @@ class Room:
 
         self.state = GameState.WAITING
         self.round_number = 0
+        # Assure to be set when calling .start()
+        self.round = {} # type: ignore
 
         self.players = []
         self.team_1 = []
@@ -136,22 +144,35 @@ class Room:
         self.round = {
             "game_mode": round(random.random()),
             "round_number": -1, "starting_team": round(random.random()) + 1,
-            "starting_player": random.choice(self.players).id,
+            "starting_player": t.cast(int, random.choice(self.players).player_id),
             "player_11": t.cast(int, self.team_1[0].player_id), "player_12": self.team_1[1].player_id if self.team_size == 2 else None,
-            "player_21": t.cast(int, self.team_2[0].player_id), "player_22": self.team_2[1].player_id if self.team_size == 2 else None
+            "player_21": t.cast(int, self.team_2[0].player_id), "player_22": self.team_2[1].player_id if self.team_size == 2 else None,
+            "game_data": None
         }
     
 
+    def _letters_round(self) -> dict:
+        return {
+            "letters": []
+        }
+    
+    def _numbers_round(self) -> dict:
+        return {
+            "large": [],
+            "small": []
+        }
+
     def _all_round(self) -> None:
-        ids = [player.id for player in self.players]
+        ids = [player.player_id for player in self.players]
 
         new_round: RoundDict = {
             "game_mode": int(not self.round["game_mode"]),
             "round_number": self.round_number,
             "starting_team": ((self.round["starting_team"] + 1) % 2) + 1,
-            "starting_player": ids[(ids.index(self.round["starting_player"]) + 1) % len(ids)],
+            "starting_player": t.cast(int, ids[(ids.index(self.round["starting_player"]) + 1) % len(ids)]),
             "player_11": t.cast(int, self.team_1[0].player_id), "player_12": self.team_1[1].player_id if self.team_size == 2 else None,
-            "player_21": t.cast(int, self.team_2[0].player_id), "player_22": self.team_2[1].player_id if self.team_size == 2 else None
+            "player_21": t.cast(int, self.team_2[0].player_id), "player_22": self.team_2[1].player_id if self.team_size == 2 else None,
+            "game_data": None
         }
 
         socketio.emit("round_new", new_round, to=self.id)
@@ -163,17 +184,19 @@ class Room:
     def _conundrum(self) -> None:
         pass
     
-    def next_round(self) -> None:
+    def prepare_next_round(self) -> None:
+        self.state = GameState.ROUND_NEW
+
         # Both games are played (in random order in a 2v2 manner)
         if self.round_number < 2:
-            return self._all_round()
+            self._all_round()
 
         # This depends on whether is a 1v1 or a 2v2
         # In a 1v1 this is more of the same, in a 2v2 these are two random rounds
         # where two different opponents face each other
         if self.round_number < 4:
-            if self.team_size == 1: return self._all_round()
-            return self._specific_round()
+            if self.team_size == 1: self._all_round()
+            else: self._specific_round()
 
         # This depends on whether it is a 1v1 or a 2v2
         # 1v1 ends here with a conundrum, 2v2 continues with anohter general round
@@ -181,9 +204,16 @@ class Room:
             return self._conundrum()
 
         if self.round_number < 6:
-            return self._all_round()
+            self._all_round()
 
-        self._conundrum()
+        else:
+            return self._conundrum()
+
+        if self.round["game_mode"] == 0:
+            self.round["game_data"] = self._letters_round()
+
+        if self.round["game_mode"] == 1:
+            self.round["game_data"] = self._numbers_round()
 
 
     def save(self) -> None:
@@ -195,6 +225,7 @@ class Room:
             "token": self.token,
             "team_size": self.team_size,
             "round_number": self.round_number,
+            "round": self.round,
             "state": self.state.name,
             "creator_id": self.creator.id,
             "player_ids": [player.id for player in self.players],

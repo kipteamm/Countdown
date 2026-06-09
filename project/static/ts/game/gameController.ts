@@ -32,12 +32,12 @@ interface NewRound {
     round_number: number;
     game_mode: number; 
     starting_team: number;
-    starting_player: string;
+    starting_player: number;
 
-    player_11: string;
-    player_12: string | null;
-    player_21: string;
-    player_22: string | null;
+    player_11: number;
+    player_12: number | null;
+    player_21: number;
+    player_22: number | null;
 }
 
 
@@ -56,19 +56,33 @@ function getCookie(name: string) {
 
 enum GameState {
     WAITING,
-    NEW_ROUND
+    ROUND_NEW,
+    ROUND_LETTERS,
+    ROUND_NUMBERS,
+    ROUND_CONUNDRUM
 }
 
 function _toState(name: string): GameState {
     if (name === "waiting") return GameState.WAITING;
-    if (name === "new-round") return GameState.NEW_ROUND;
+    if (name === "round-new") return GameState.ROUND_NEW;
+    if (name === "round-letters") return GameState.ROUND_LETTERS;
+    if (name === "round-numbers") return GameState.ROUND_NUMBERS;
+    if (name === "round-conundrum") return GameState.ROUND_CONUNDRUM;
     throw new TypeError(name);
+}
+
+function playerName(id: number): string {
+    GAME.players.forEach(player => {
+        if (player.player_id === id) return player.username;
+    });
+    throw new TypeError(id.toString());
 }
 
 
 class GameController {
     private players: HTMLElement;
     private stateParents: Record<GameState, HTMLElement> = {} as Record<GameState, HTMLElement>;
+    private state: GameState = GameState.WAITING;
 
     constructor() {
         document.querySelectorAll(".state").forEach((elm) => {
@@ -126,9 +140,43 @@ class GameController {
         `;
     }
 
+    private updateState(state: GameState): void {
+        this.stateParents[this.state].classList.remove("active");
+        this.state = state;
+        this.stateParents[this.state].classList.add("active");
+    }
 
     private newRound(data: NewRound): void {
-        console.log(data);
+        const isLetters = data.game_mode === 0;
+        const state = isLetters? GameState.ROUND_LETTERS: GameState.ROUND_NUMBERS
+        const parent = this.stateParents[GameState.ROUND_NEW];
+        const everyone = data.player_12 !== null
+
+        console.log(data)
+
+        if (state === GameState.ROUND_LETTERS) {
+            parent.innerHTML = `
+                <h2>It is ${playerName(data.starting_player)} turn to pick the letters.</h2>
+                <b>This game is played by ${everyone? "everyone": `${playerName(data.player_11)} and ${playerName(data.player_21)}`}.</b>
+                <p>
+                    ${playerName(data.starting_player)} will begin with picking (at least) 3 vowels and 4 constenants. 
+                    It is then to ${everyone? "you": `${playerName(data.player_11)} and ${playerName(data.player_21)}`} to form the
+                    longest possible, existing English word with the provided letters.
+                <p>
+            `;
+        } else if (state == GameState.ROUND_NUMBERS) {
+            parent.innerHTML = `
+                <h2>${playerName(data.starting_player)} has to pick the numbers.</h2>
+                <b>This game is played by ${everyone? "everyone": `${playerName(data.player_11)} and ${playerName(data.player_21)}`}.</b>
+                <p>
+                    ${playerName(data.starting_player)} has the choice to pick 6 numbers out of any row.
+                    The top row are big numbers, the rest are random small ones. At least one big
+                    number must be picked.
+                <p>
+            `;
+        }
+
+        this.updateState(state);
     }
 }
 
