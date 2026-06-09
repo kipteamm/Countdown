@@ -16,6 +16,15 @@
 {% endblock %}
 
 {% block content %}
+    <div class="input" id="input">
+        <div class="timer">
+            <div class="bar"></div>
+        </div>
+
+        <input type="text" placeholder="Your answer" oninput="this.nextElementSibling.innerText=(!this.value?'No input':'Saved');">
+        <p>No input</p>
+    </div>
+
     <div class="state{% if room.state.value == 0 %} active{% endif %}" data-state="waiting">
         Invite people with code <b>{{ room.id }}</b> <br>
         Or with link <a href="#" onclick="navigator.clipboard.writeText(this.innerText);alert('Link copied to clipboard!');return false;">{{ request.scheme }}://{{ request.host }}/l?id={{ room.id }}</a>
@@ -76,6 +85,4 @@
         </div>
     </div>
     <div class="state" data-state="round-conundrum"></div>
-
-    <h1 id="status" style="position: fixed;top:0">??</h1>
 {% endblock %}

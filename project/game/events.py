@@ -41,12 +41,28 @@ def start_timer(room: RoomDict) -> None:
         socketio.sleep(1)
 
     socketio.emit("round_countdown", to=room["id"])
-    
-    socketio.sleep(30)
 
-    socketio.emit("round_end", to=room["id"])
+    # 30 second countdown -> answers    
+    room["state"] = GameState.ROUND_COUNTDOWN.name
+    cache.set(room["id"], room, timeout=2 * 60 * 60)
+
+    socketio.sleep(30)
+    socketio.emit("round_answer", to=room["id"])
+
     room["state"] = GameState.ROUND_ANSWER.name
-    room["timestamp"] = time.time()
+    cache.set(room["id"], room, timeout=2 * 60 * 60)
+
+    # 5 second grace period to fill in answer
+    socketio.sleep(5)
+    socketio.emit("round_end", to=room["id"])
+
+    # Answers deadline
+    socketio.sleep(1)
+
+    room["state"] = GameState.ROUND_REVEAL.name
+    cache.set(room["id"], room, timeout=2 * 60 * 60)
+
+    socketio.sleep(1)
 
 
 def register_events(socketio: SocketIO):
@@ -94,7 +110,7 @@ def register_events(socketio: SocketIO):
         socketio.start_background_task(start_next_round, room.serialize())
 
 
-    @socketio.on("round_pick")
+    @socketio.on("pick")
     def handle_pick(data: dict):
         user: AnonymousUser | None = AnonymousUser.get(data["token"])
         if not user: return
@@ -108,12 +124,25 @@ def register_events(socketio: SocketIO):
 
         # Start the 30 second COUNTDOWN timer condition for each minigame
         if room.state == GameState.ROUND_LETTERS and len(room.round["game_data"]["letters"]) == 9:
-            room.state = GameState.ROUND_COUNTDOWN
             socketio.start_background_task(start_timer, room.serialize())
+
         if room.state == GameState.ROUND_NUMBERS and len(room.round["game_data"]["small"]) + len(room.round["game_data"]["large"]) == 6:
-            room.state = GameState.ROUND_COUNTDOWN
             socketio.start_background_task(start_timer, room.serialize())
 
         room.save()
 
         socketio.emit("round_entity", room.round["game_data"], to=room.id)
+
+
+    @socketio.on("answer")
+    def handle_answer(data: dict):
+        user: AnonymousUser | None = AnonymousUser.get(data["token"])
+        if not user: return
+
+        room = Room.get(user.room_id)
+        if not room: return
+        if room.state != GameState.ROUND_ANSWER: return
+
+        user.answer = data["answer"]
+        user.save()
+        

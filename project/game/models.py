@@ -15,6 +15,7 @@ class GameState(e.Enum):
     ROUND_CONUNDRUM = 4
     ROUND_COUNTDOWN = 5
     ROUND_ANSWER = 6
+    ROUND_REVEAL = 7
 
 
 class RoundDict(t.TypedDict):
@@ -39,7 +40,6 @@ class RoomDict(t.TypedDict):
     round_number: int
     round: RoundDict
     round_private: dict[str, list]
-    timestamp: float
 
     creator_id: str
     player_ids: list[str]
@@ -64,7 +64,6 @@ class Room:
     round_number: int
     round: RoundDict
     round_private: dict[str, list]
-    timestamp: float
 
     creator: AnonymousUser
     players: list[AnonymousUser]
@@ -81,7 +80,6 @@ class Room:
         # Assure to be set when calling .start()
         self.round = {} # type: ignore
         self.round_private = {}
-        self.timestamp = 0
 
         self.players = []
         self.team_1 = []
@@ -303,7 +301,6 @@ class Room:
             "round_number": self.round_number,
             "round": self.round,
             "round_private": self.round_private,
-            "timestamp": self.timestamp,
             "state": self.state.name,
             "creator_id": self.creator.id,
             "player_ids": [player.id for player in self.players],

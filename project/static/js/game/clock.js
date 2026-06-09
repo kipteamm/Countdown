@@ -43,7 +43,7 @@ function resetClock() {
     animationId = requestAnimationFrame(animateReset);
 }
 ;
-function startCountdown(durationSeconds = 30) {
+function startCountdown() {
     if (animationId !== null) {
         cancelAnimationFrame(animationId);
     }
@@ -52,7 +52,7 @@ function startCountdown(durationSeconds = 30) {
     const startAngle = 0;
     const endAngle = 180;
     const angleRange = endAngle - startAngle;
-    const durationMs = durationSeconds * 1000;
+    const durationMs = 30 * 1000;
     const startTime = Date.now();
     function animate() {
         const elapsedMs = Date.now() - startTime;

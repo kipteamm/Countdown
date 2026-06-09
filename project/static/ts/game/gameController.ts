@@ -111,6 +111,8 @@ class GameController {
         socket.on("round_entity", (data: GameData) => this.roundEntity(data));
         socket.on("round_target", (data: number)=> this.roundTarget(data));
         socket.on("round_countdown", () => this.roundCountdown());
+        socket.on("round_answer", () => this.roundAnswer());
+        socket.on("round_end", () => this.roundEnd());
 
         socket.on("connect", () => {
             console.log("CONNECTED");
@@ -244,13 +246,26 @@ class GameController {
     }
 
     private roundCountdown(): void {
-        console.log("counting down");
+        this.stateParents[this.state].classList.remove("starting");
+        startCountdown();
+    }
+
+    private roundAnswer(): void {
+        document.getElementById("input")!.classList.add("active");
+        (document.querySelector("#input input") as HTMLInputElement).focus();
+    }
+
+    private roundEnd(): void {
+        document.getElementById("input")!.classList.remove("active");
+        const answer = (document.querySelector("#input input") as HTMLInputElement).value;
+
+        socket.emit("answer", {token: getCookie("ut")!, answer: answer});
     }
 
     public roundPick(type: number, btn: HTMLButtonElement): void {
         this.btn = btn;
         this.btn.disabled = true;
-        socket.emit("round_pick", {token: getCookie("ut")!, type: type});
+        socket.emit("pick", {token: getCookie("ut")!, type: type});
     }
 }
 

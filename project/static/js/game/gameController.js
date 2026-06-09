@@ -61,6 +61,8 @@ class GameController {
         socket.on("round_entity", (data) => this.roundEntity(data));
         socket.on("round_target", (data) => this.roundTarget(data));
         socket.on("round_countdown", () => this.roundCountdown());
+        socket.on("round_answer", () => this.roundAnswer());
+        socket.on("round_end", () => this.roundEnd());
         socket.on("connect", () => {
             console.log("CONNECTED");
             if (isHost)
@@ -173,12 +175,22 @@ class GameController {
         document.getElementById("number-target").innerText = target.toString();
     }
     roundCountdown() {
-        console.log("counting down");
+        this.stateParents[this.state].classList.remove("starting");
+        startCountdown();
+    }
+    roundAnswer() {
+        document.getElementById("input").classList.add("active");
+        document.querySelector("#input input").focus();
+    }
+    roundEnd() {
+        document.getElementById("input").classList.remove("active");
+        const answer = document.querySelector("#input input").value;
+        socket.emit("answer", { token: getCookie("ut"), answer: answer });
     }
     roundPick(type, btn) {
         this.btn = btn;
         this.btn.disabled = true;
-        socket.emit("round_pick", { token: getCookie("ut"), type: type });
+        socket.emit("pick", { token: getCookie("ut"), type: type });
     }
 }
 const socket = io("", {

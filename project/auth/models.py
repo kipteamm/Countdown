@@ -23,6 +23,7 @@ class AnonymousUser(UserMixin):
     player_id: int | None = None
     room_id: str | None = None
     ready: bool = False
+    answer: str
 
     def __init__(self, username: str) -> None:
         self.id = secrets.token_urlsafe(64)
