@@ -64,6 +64,7 @@ enum GameState {
     ROUND_CONUNDRUM,
     ROUND_COUNTDOWN,
     ROUND_ANSWER,
+    ROUND_VERIFY,
 }
 
 function _toState(name: string): GameState {
@@ -92,6 +93,8 @@ class GameController {
     private btn: HTMLButtonElement | null = null;
     private entities: HTMLElement | null = null;
     private gameData: GameData | null = null;
+
+    private currentRule: HTMLElement | null = null;
 
     constructor() {
         document.querySelectorAll(".state").forEach((elm) => {
@@ -225,14 +228,14 @@ class GameController {
             const newLarge = (data.large as number[]).slice(prevLargeLength);
 
             for (const number of newLarge) {
-                this.entities.innerHTML += `<div class="entity">${number}</div>`;
+                this.entities.innerHTML += `<div class="entity" onclick="game.verifyToggle(this, false)">${number}</div>`;
             }
 
             const prevSmallLength = this.gameData?.small?.length || 0;
             const newSmall = (data.small as number[]).slice(prevSmallLength);
 
             for (const number of newSmall) {
-                this.entities.innerHTML += `<div class="entity">${number}</div>`;
+                this.entities.innerHTML += `<div class="entity" onclick="game.verifyToggle(this, false)">${number}</div>`;
             }
         }
 
@@ -252,20 +255,27 @@ class GameController {
     }
 
     private roundAnswer(): void {
-        document.getElementById("input")!.classList.add("active");
-        (document.querySelector("#input input") as HTMLInputElement).focus();
+        document.getElementById("submit")!.classList.add("active");
+        (document.querySelector("#submit input") as HTMLInputElement).focus();
     }
 
     private roundEnd(): void {
-        document.getElementById("input")!.classList.remove("active");
-        const answer = (document.querySelector("#input input") as HTMLInputElement).value;
+        console.log("SENDING ANSWER")
+
+        document.getElementById("submit")!.classList.remove("active");
+        const answer = (document.querySelector("#submit input") as HTMLInputElement).value;
 
         socket.emit("answer", {token: getCookie("ut")!, answer: answer});
     }
 
     private roundVerify(data: number): void {
-        if (data !== PLAYER.player_id) return;
-        console.log(data);
+        if (data !== PLAYER.player_id) {
+            document.getElementById("verifying")!.classList.add("active");
+            return;
+        }
+
+        this.state = GameState.ROUND_VERIFY;
+        document.body.classList.add("verify");
     }
 
     private roundResults(data: number[][]): void {
@@ -276,6 +286,136 @@ class GameController {
         this.btn = btn;
         this.btn.disabled = true;
         socket.emit("pick", {token: getCookie("ut")!, type: type});
+    }
+
+    public releaseRule(ruleElm: HTMLElement): void {
+        if (!ruleElm) return;
+
+        const numberPool = document.getElementById("number-entities")!;
+        const ruleElmsContainer = ruleElm.querySelector(".entities")!;        
+        const childrenArray = Array.from(ruleElmsContainer.children);
+
+        childrenArray.forEach((child) => {
+            const htmlChild = child as HTMLElement;
+            const text = htmlChild.innerText;
+
+            const isOperator = ["+", "-", "×", "÷"].includes(text);
+
+            if (isOperator) {
+                htmlChild.remove();
+            } else {
+                htmlChild.setAttribute("onclick", "game.verifyToggle(this, false)");
+                numberPool.appendChild(htmlChild);
+            }
+        });
+
+        const ruleString = ruleElm.getAttribute("data-rule-string");
+        if (ruleString) {
+            const generatedResultElm = numberPool.querySelector(`[data-from-rule="${ruleString}"]`);
+            if (generatedResultElm) {
+                generatedResultElm.remove();
+            }
+        }
+
+        ruleElm.remove();
+    }
+
+    public addRule() {
+        this.currentRule = (this.currentRule || document.getElementById("current-rule")!);
+
+        if (this.currentRule.childElementCount < 3) return;
+        let rule = "";
+        
+        for (const elm of this.currentRule.children) {
+            const value = (elm as HTMLElement).innerText.replace("×", "*").replace("÷", "/");
+            rule += value;
+        }
+
+        const result = eval(rule);
+        if (!Number.isInteger(result) || result < 0) return;
+        
+        const elm = document.createElement("div");
+        elm.setAttribute("onclick", "game.verifyToggle(this, false)");
+        elm.classList.add("entity");
+        elm.innerText = result;
+        elm.setAttribute("data-from-rule", rule); 
+        document.getElementById("number-entities")!.appendChild(elm);
+
+        const ruleElms = document.createElement("div");
+        ruleElms.classList.add("entities");
+
+        const childrenArray = Array.from(this.currentRule.children);
+        for (const child of childrenArray) {
+            child.removeAttribute("onclick");
+            ruleElms.appendChild(child);
+        }
+
+        const ruleElm = document.createElement("div");
+        ruleElm.classList.add("rule"); 
+        ruleElm.setAttribute("data-rule-string", rule);       
+        ruleElm.appendChild(ruleElms); 
+        
+        const releaseElm = document.createElement("div");
+        releaseElm.classList.add("entity");
+        releaseElm.innerText = "#";
+        releaseElm.setAttribute("onclick", "game.releaseRule(this.parentElement)");
+        ruleElm.appendChild(releaseElm);
+
+        document.getElementById("rules")!.appendChild(ruleElm);        
+    }
+
+   public verifyToggle(elm: HTMLElement, isOperator: boolean): void {
+        this.currentRule = (this.currentRule || document.getElementById("current-rule")!);
+        
+        const isAlreadyInWorkspace = elm.parentElement === this.currentRule;
+        
+        if (isAlreadyInWorkspace) {
+            const numberPool = document.getElementById("number-entities")!;
+            
+            const elementsToRemove: HTMLElement[] = [];
+            let nextSibling = elm.nextElementSibling as HTMLElement;
+            
+            while (nextSibling) {
+                elementsToRemove.push(nextSibling);
+                nextSibling = nextSibling.nextElementSibling as HTMLElement;
+            }
+
+            for (const trailingElm of elementsToRemove) {
+                const isTrailingOperator = ["+", "-", "×", "÷"].includes(trailingElm.innerText);
+                
+                if (isTrailingOperator) {
+                    trailingElm.remove();
+                } else {
+                    numberPool.appendChild(trailingElm);
+                }
+            }
+
+            if (isOperator) {
+                elm.remove();
+            } else {
+                numberPool.appendChild(elm);
+            }
+            
+            return;
+        }
+
+        const currentLength = this.currentRule.childElementCount;
+        if (currentLength === 0) {
+            if (isOperator) return;
+        } 
+        else if (currentLength === 1) {
+            if (!isOperator) return;
+        } 
+        else if (currentLength === 2) {
+            if (isOperator) return;
+        } 
+        else return;
+
+        if (isOperator) {
+            this.currentRule.appendChild(elm.cloneNode(true));
+        } else {
+            this.currentRule.appendChild(elm);
+        }
     }
 }
 

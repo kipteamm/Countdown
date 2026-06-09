@@ -15,7 +15,7 @@ class AnonymousUserDict(t.TypedDict):
     room_id: str | None
     team_id: int | None
     ready: bool
-    answer: str | int | None
+    answer: str | None
 
 
 class AnonymousUser(UserMixin):
@@ -26,7 +26,7 @@ class AnonymousUser(UserMixin):
     room_id: str | None = None
     team_id: int | None = None
     ready: bool = False
-    answer: str | int | None = None
+    answer: str | None = None
 
     def __init__(self, username: str) -> None:
         self.id = secrets.token_urlsafe(64)

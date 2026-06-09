@@ -52,6 +52,8 @@ def start_timer(room: RoomDict) -> None:
     socketio.sleep(5)
     socketio.emit("round_end", to=room["id"])
 
+    socketio.sleep(1)
+    
     room["state"] = GameState.ROUND_REVEAL.name
     cache.set(room["id"], room, timeout=2 * 60 * 60)
 

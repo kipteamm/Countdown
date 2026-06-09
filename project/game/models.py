@@ -328,8 +328,11 @@ class Room:
 
             answers.append((player.player_id, player.team_id, len(player.answer), player.answer))
             player.answer = None
+            player.save()
 
         answers.sort(key=lambda x: x[2])
+
+        print("[ANSWERS]", answers)
 
         # If both teams compete for the same score in a letters game
         if len(answers) > 1 and (answers[0][2] == answers[1][2] and answers[0][1] != answers[1][1]):
@@ -340,7 +343,7 @@ class Room:
         elif len(answers) == 1:
             room[f"team_{answers[0][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
 
-        socketio.emit("round_results", answers, to=room["id"])
+        socketio.emit("round_result", answers, to=room["id"])
 
 
     @classmethod
@@ -349,12 +352,24 @@ class Room:
 
         for id in room["player_ids"]:
             player = AnonymousUser.get(id, True)
-            points = abs(room["round_private"]["TARGET"][0] - (t.cast(int, player.answer) or 0))
+            if player.answer == None: continue
 
-            if points > 10: continue
-            answers.append((player.player_id, player.team_id, points, player.answer))
+            try:
+                points = abs(room["round_private"]["TARGET"][0] - (int(player.answer) or 0))
+            except:
+                player.answer = None
+                player.save()
+                continue
 
-        for i in range(min(2, len(answers))):
+            if points <= 10:
+                answers.append((player.player_id, player.team_id, points, player.answer))
+
+            player.answer = None
+            player.save()
+
+        print("[ANSWERS]", answers)
+
+        for i in range(len(answers)):
             socketio.emit("round_verify", answers[i][0], to=room["id"])
 
 

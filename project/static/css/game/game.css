@@ -3,6 +3,30 @@ body {
     background-image: url("/static/images/background.avif");
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: white;
+    overflow-x: hidden;
+}
+body.verify {
+    .clock {
+        display: none;
+    }
+    .board {
+        margin-top: 10svh;
+        height: 90svh;
+    }
+    .rules {
+        flex: 1;
+    }
+}
+body:not(.verify) .operators {
+    display: none;
+}
+body.verify {
+    .bar {
+        animation-duration: 20s !important;
+    }
+    .rule {
+        display: flex;
+    }
 }
 
 .state {
@@ -87,29 +111,46 @@ body {
     text-align: center;
     display: none;
 
-    > * {
-        width: 200px;
-    }
-
     p {
         margin: 0;
-    }
-
-    .timer {
-        height: 4px;
-
-        .bar {
-            width: 0;
-        }
     }
 }
 .input.active {
     display: flex;
 }
 
-.input.active .bar {
-    transition: width 5s linear;
-    width: 100%;
+.input.verifying > *,
+.input.submit > * {
+    width: 200px;
+}
+
+.timer {
     height: 4px;
-    background: #1e3792;
+    width: 100%;
+
+    .bar {
+        width: 0;
+        height: 4px;
+        background: #1e3792;
+    }
+}
+
+.input.active .bar,
+.verify .bar {
+    animation: fillBar 5s linear forwards;
+}
+
+@keyframes fillBar {
+    from {
+        width: 0;
+    }
+    to {
+        width: 100%;
+    }
+}
+
+.rule {
+    display: none;
+    align-items: center;
+    gap: 8px;
 }

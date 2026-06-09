@@ -18,6 +18,7 @@ var GameState;
     GameState[GameState["ROUND_CONUNDRUM"] = 4] = "ROUND_CONUNDRUM";
     GameState[GameState["ROUND_COUNTDOWN"] = 5] = "ROUND_COUNTDOWN";
     GameState[GameState["ROUND_ANSWER"] = 6] = "ROUND_ANSWER";
+    GameState[GameState["ROUND_VERIFY"] = 7] = "ROUND_VERIFY";
 })(GameState || (GameState = {}));
 function _toState(name) {
     if (name === "waiting")
@@ -47,6 +48,7 @@ class GameController {
         this.btn = null;
         this.entities = null;
         this.gameData = null;
+        this.currentRule = null;
         document.querySelectorAll(".state").forEach((elm) => {
             const HTMLelm = elm;
             this.stateParents[_toState(HTMLelm.dataset.state)] = HTMLelm;
@@ -160,12 +162,12 @@ class GameController {
             const prevLargeLength = ((_d = (_c = this.gameData) === null || _c === void 0 ? void 0 : _c.large) === null || _d === void 0 ? void 0 : _d.length) || 0;
             const newLarge = data.large.slice(prevLargeLength);
             for (const number of newLarge) {
-                this.entities.innerHTML += `<div class="entity">${number}</div>`;
+                this.entities.innerHTML += `<div class="entity" onclick="game.verifyToggle(this, false)">${number}</div>`;
             }
             const prevSmallLength = ((_f = (_e = this.gameData) === null || _e === void 0 ? void 0 : _e.small) === null || _f === void 0 ? void 0 : _f.length) || 0;
             const newSmall = data.small.slice(prevSmallLength);
             for (const number of newSmall) {
-                this.entities.innerHTML += `<div class="entity">${number}</div>`;
+                this.entities.innerHTML += `<div class="entity" onclick="game.verifyToggle(this, false)">${number}</div>`;
             }
         }
         this.gameData = data;
@@ -181,18 +183,22 @@ class GameController {
         startCountdown();
     }
     roundAnswer() {
-        document.getElementById("input").classList.add("active");
-        document.querySelector("#input input").focus();
+        document.getElementById("submit").classList.add("active");
+        document.querySelector("#submit input").focus();
     }
     roundEnd() {
-        document.getElementById("input").classList.remove("active");
-        const answer = document.querySelector("#input input").value;
+        console.log("SENDING ANSWER");
+        document.getElementById("submit").classList.remove("active");
+        const answer = document.querySelector("#submit input").value;
         socket.emit("answer", { token: getCookie("ut"), answer: answer });
     }
     roundVerify(data) {
-        if (data !== PLAYER.player_id)
+        if (data !== PLAYER.player_id) {
+            document.getElementById("verifying").classList.add("active");
             return;
-        console.log(data);
+        }
+        this.state = GameState.ROUND_VERIFY;
+        document.body.classList.add("verify");
     }
     roundResults(data) {
         console.log(data);
@@ -201,6 +207,119 @@ class GameController {
         this.btn = btn;
         this.btn.disabled = true;
         socket.emit("pick", { token: getCookie("ut"), type: type });
+    }
+    releaseRule(ruleElm) {
+        if (!ruleElm)
+            return;
+        const numberPool = document.getElementById("number-entities");
+        const ruleElmsContainer = ruleElm.querySelector(".entities");
+        const childrenArray = Array.from(ruleElmsContainer.children);
+        childrenArray.forEach((child) => {
+            const htmlChild = child;
+            const text = htmlChild.innerText;
+            const isOperator = ["+", "-", "×", "÷"].includes(text);
+            if (isOperator) {
+                htmlChild.remove();
+            }
+            else {
+                htmlChild.setAttribute("onclick", "game.verifyToggle(this, false)");
+                numberPool.appendChild(htmlChild);
+            }
+        });
+        const ruleString = ruleElm.getAttribute("data-rule-string");
+        if (ruleString) {
+            const generatedResultElm = numberPool.querySelector(`[data-from-rule="${ruleString}"]`);
+            if (generatedResultElm) {
+                generatedResultElm.remove();
+            }
+        }
+        ruleElm.remove();
+    }
+    addRule() {
+        this.currentRule = (this.currentRule || document.getElementById("current-rule"));
+        if (this.currentRule.childElementCount < 3)
+            return;
+        let rule = "";
+        for (const elm of this.currentRule.children) {
+            const value = elm.innerText.replace("×", "*").replace("÷", "/");
+            rule += value;
+        }
+        const result = eval(rule);
+        if (!Number.isInteger(result) || result < 0)
+            return;
+        const elm = document.createElement("div");
+        elm.setAttribute("onclick", "game.verifyToggle(this, false)");
+        elm.classList.add("entity");
+        elm.innerText = result;
+        elm.setAttribute("data-from-rule", rule);
+        document.getElementById("number-entities").appendChild(elm);
+        const ruleElms = document.createElement("div");
+        ruleElms.classList.add("entities");
+        const childrenArray = Array.from(this.currentRule.children);
+        for (const child of childrenArray) {
+            child.removeAttribute("onclick");
+            ruleElms.appendChild(child);
+        }
+        const ruleElm = document.createElement("div");
+        ruleElm.classList.add("rule");
+        ruleElm.setAttribute("data-rule-string", rule);
+        ruleElm.appendChild(ruleElms);
+        const releaseElm = document.createElement("div");
+        releaseElm.classList.add("entity");
+        releaseElm.innerText = "#";
+        releaseElm.setAttribute("onclick", "game.releaseRule(this.parentElement)");
+        ruleElm.appendChild(releaseElm);
+        document.getElementById("rules").appendChild(ruleElm);
+    }
+    verifyToggle(elm, isOperator) {
+        this.currentRule = (this.currentRule || document.getElementById("current-rule"));
+        const isAlreadyInWorkspace = elm.parentElement === this.currentRule;
+        if (isAlreadyInWorkspace) {
+            const numberPool = document.getElementById("number-entities");
+            const elementsToRemove = [];
+            let nextSibling = elm.nextElementSibling;
+            while (nextSibling) {
+                elementsToRemove.push(nextSibling);
+                nextSibling = nextSibling.nextElementSibling;
+            }
+            for (const trailingElm of elementsToRemove) {
+                const isTrailingOperator = ["+", "-", "×", "÷"].includes(trailingElm.innerText);
+                if (isTrailingOperator) {
+                    trailingElm.remove();
+                }
+                else {
+                    numberPool.appendChild(trailingElm);
+                }
+            }
+            if (isOperator) {
+                elm.remove();
+            }
+            else {
+                numberPool.appendChild(elm);
+            }
+            return;
+        }
+        const currentLength = this.currentRule.childElementCount;
+        if (currentLength === 0) {
+            if (isOperator)
+                return;
+        }
+        else if (currentLength === 1) {
+            if (!isOperator)
+                return;
+        }
+        else if (currentLength === 2) {
+            if (isOperator)
+                return;
+        }
+        else
+            return;
+        if (isOperator) {
+            this.currentRule.appendChild(elm.cloneNode(true));
+        }
+        else {
+            this.currentRule.appendChild(elm);
+        }
     }
 }
 const socket = io("", {

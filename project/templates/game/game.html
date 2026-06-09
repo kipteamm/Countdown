@@ -16,13 +16,15 @@
 {% endblock %}
 
 {% block content %}
-    <div class="input" id="input">
-        <div class="timer">
-            <div class="bar"></div>
-        </div>
+    <div class="input submit" id="submit">
+        <div class="timer"><div class="bar"></div></div>
 
         <input type="text" placeholder="Your answer" oninput="this.nextElementSibling.innerText=(!this.value?'No input':'Saved');">
         <p>No input</p>
+    </div>
+
+    <div class="input verifying" id="verifying">
+        <h2>People are verifying their solution</h2>
     </div>
 
     <div class="state center{% if room.state.value == 0 %} active{% endif %}" data-state="waiting">
@@ -68,9 +70,29 @@
             {% include "game/clock.html" %}
         </div>
         <div class="board">
-            <div class="target" id="number-target">XXX</div>
-            <div class="entities" style="width:402px;" id="number-entities"></div>
+            <div class="timer"><div class="bar"></div></div>
 
+            <div class="target" id="number-target">XXX</div>
+            
+            <div class="rules" id="rules"></div>
+
+            <div class="rule operators">
+                <div class="entities" style="width:204px;" id="current-rule"></div>
+                <div class="entity" onclick="game.addRule()">=</div>
+            </div>
+
+            <div class="entities" style="width:402px;" id="number-entities">
+                <div class="entity" onclick="game.verifyToggle(this, false)">100</div>
+                <div class="entity" onclick="game.verifyToggle(this, false)">3</div>
+            </div>
+            
+            <div class="entities operators" style="width:270px;">
+                <div class="entity" onclick="game.verifyToggle(this, true)">+</div>
+                <div class="entity" onclick="game.verifyToggle(this, true)">-</div>
+                <div class="entity" onclick="game.verifyToggle(this, true)">×</div>
+                <div class="entity" onclick="game.verifyToggle(this, true)">÷</div>
+            </div>
+            
             <div class="options">
                 <button onclick="game.roundPick(1, this)">Large</button>
                 <button onclick="game.roundPick(0, this)">Small</button>
