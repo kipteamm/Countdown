@@ -1,6 +1,9 @@
 let isRunning = false;
 let animationId: number | null = null;
 
+const countdownAudio = new Audio('/static/sounds/tune.mp3');
+countdownAudio.volume = 0.5;
+
 function getArcPath(centerX: number, centerY: number, radius: number, startAngle: number, endAngle: number) {
     const startRad = (startAngle - 90) * Math.PI / 180.0;
     const endRad = (endAngle - 90) * Math.PI / 180.0;
@@ -16,6 +19,13 @@ function getArcPath(centerX: number, centerY: number, radius: number, startAngle
 }
 
 function resetClock(): void {
+    countdownAudio.pause();
+    countdownAudio.currentTime = 0;
+
+    if (animationId !== null) {
+        cancelAnimationFrame(animationId);
+    }
+
     const startAngle = 180;
     const endAngle = 360;
     const durationMs = 2000;
@@ -51,7 +61,7 @@ function resetClock(): void {
     }
 
     animationId = requestAnimationFrame(animateReset);
-};
+}
 
 function startCountdown(): void {
     if (animationId !== null) {
@@ -64,14 +74,19 @@ function startCountdown(): void {
     const startAngle = 0;   
     const endAngle = 180;   
     const angleRange = endAngle - startAngle;
-    const durationMs = 30 * 1000;
-    const startTime = Date.now();
+    
+    countdownAudio.currentTime = 0;
+    countdownAudio.play().catch(err => {
+        console.warn("Audio playback failed. Ensure user interacted with the page first:", err);
+    });
 
     function animate() {
-        const elapsedMs = Date.now() - startTime;
+        let progress = countdownAudio.currentTime / countdownAudio.duration;
         
-        let progress = elapsedMs / durationMs;
-        if (isNaN(progress)) progress = 0; 
+        if (isNaN(progress)) {
+            progress = 0;
+        }
+        
         progress = Math.max(0, Math.min(progress, 1.0));
 
         const currentAngle = startAngle + (angleRange * progress);
@@ -93,7 +108,7 @@ function startCountdown(): void {
             }
         });
 
-        if (progress < 1.0) {
+        if (progress < 1.0 && !countdownAudio.ended) {
             animationId = requestAnimationFrame(animate);
         } else {
             console.log("[CLOCK] FINISHED!");
@@ -102,9 +117,9 @@ function startCountdown(): void {
             const finalPath = getArcPath(200, 200, 145, startAngle, endAngle);
             litAreas.forEach(area => area.setAttribute('d', finalPath));
             
-            window.resetClock();
+            resetClock();
         }
     }
 
     animationId = requestAnimationFrame(animate);
-};
+}

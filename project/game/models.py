@@ -1,5 +1,6 @@
 from project.auth.models import AnonymousUserDict, AnonymousUser
 from project.extensions import cache, socketio
+from english_words import get_english_words_set
 
 import typing as t 
 import enum as e
@@ -45,6 +46,8 @@ class RoomDict(t.TypedDict):
     player_ids: list[str]
     team_1_ids: list[str]
     team_2_ids: list[str]
+    team_1_points: int
+    team_2_points: int
 
 
 VOWELS_LOOKUP = {'A', 'E', 'I', 'O', 'U'}
@@ -53,6 +56,15 @@ CONSONANTS = list("BBCCDDDDFFGGGHHJKLLLLMMNNNNNPPQRRRRRRSSSSSSTTTTTTVVWWXYZ")
 
 LARGE_NUMBERS = [25, 50, 75, 100]
 SMALL_NUMBERS = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10]
+
+
+WORDS = {
+    word for word in get_english_words_set(["web2"], lower=True) 
+    if 2 <= len(word) <= 9
+}
+
+def is_valid_word(word: str) -> bool:
+    return word.lower() in WORDS
 
 
 class Room:
@@ -69,6 +81,8 @@ class Room:
     players: list[AnonymousUser]
     team_1: list[AnonymousUser]
     team_2: list[AnonymousUser]
+    team_1_points: int
+    team_2_points: int
 
     def __init__(self, team_size: int, creator: AnonymousUser) -> None:
         self.id = str(random.randint(100000, 999999))
@@ -84,6 +98,8 @@ class Room:
         self.players = []
         self.team_1 = []
         self.team_2 = []
+        self.team_1_points = 0
+        self.team_2_points = 0
 
         self.creator = creator
         self.add_player(creator)
@@ -154,6 +170,13 @@ class Room:
                 self.team_1 = [self.players[0], self.players[1]]
                 self.team_2 = [self.players[2], self.players[3]]
 
+        for player in self.team_1:
+            player.team_id = 1
+            player.save()
+
+        for player in self.team_2:
+            player.team_id = 2
+            player.save()
         
         self.round = {
             "game_mode": round(random.random()),
@@ -290,6 +313,60 @@ class Room:
                 self.round["game_data"]["small"].append(number)
 
 
+    @classmethod
+    def _evaluate_letters(cls, room: RoomDict) -> None:
+        # List of tuples (player_id, team, value, answer)
+        answers = []
+
+        for id in room["player_ids"]:
+            player = AnonymousUser.get(id, True)
+
+            if not isinstance(player.answer, str): continue
+            if len(player.answer) > 9: continue
+            if len(player.answer) < 2: continue
+            if not is_valid_word(player.answer): continue
+
+            answers.append((player.player_id, player.team_id, len(player.answer), player.answer))
+            player.answer = None
+
+        answers.sort(key=lambda x: x[2])
+
+        # If both teams compete for the same score in a letters game
+        if len(answers) > 1 and (answers[0][2] == answers[1][2] and answers[0][1] != answers[1][1]):
+            # Add 18 if a word of 9, otherwise the length of the word
+            room[f"team_{answers[0][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
+            room[f"team_{answers[1][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
+
+        elif len(answers) == 1:
+            room[f"team_{answers[0][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
+
+        socketio.emit("round_results", answers, to=room["id"])
+
+
+    @classmethod
+    def _evaluate_numbers(cls, room: RoomDict) -> None:
+        answers = []
+
+        for id in room["player_ids"]:
+            player = AnonymousUser.get(id, True)
+            points = abs(room["round_private"]["TARGET"][0] - (t.cast(int, player.answer) or 0))
+
+            if points > 10: continue
+            answers.append((player.player_id, player.team_id, points, player.answer))
+
+        for i in range(min(2, len(answers))):
+            socketio.emit("round_verify", answers[i][0], to=room["id"])
+
+
+    @classmethod
+    def evaluate_answers(cls, room: RoomDict) -> None:
+        if room["round"]["game_mode"] == 0:
+            return cls._evaluate_letters(room)
+
+        if room["round"]["game_mode"] == 1:
+            return cls._evaluate_numbers(room)        
+
+
     def save(self) -> None:
         cache.set(self.id, self.serialize(), timeout=12 * 60 * 60)
 
@@ -306,6 +383,8 @@ class Room:
             "player_ids": [player.id for player in self.players],
             "team_1_ids": [player.id for player in self.team_1],
             "team_2_ids": [player.id for player in self.team_2],
+            "team_1_points": self.team_1_points,
+            "team_2_points": self.team_2_points
         }
     
     def serialize_game(self) -> dict[str, t.Any]:

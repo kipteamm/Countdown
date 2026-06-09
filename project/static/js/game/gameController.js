@@ -63,6 +63,8 @@ class GameController {
         socket.on("round_countdown", () => this.roundCountdown());
         socket.on("round_answer", () => this.roundAnswer());
         socket.on("round_end", () => this.roundEnd());
+        socket.on("round_verify", (data) => this.roundVerify(data));
+        socket.on("round_result", (data) => this.roundResults(data));
         socket.on("connect", () => {
             console.log("CONNECTED");
             if (isHost)
@@ -186,6 +188,14 @@ class GameController {
         document.getElementById("input").classList.remove("active");
         const answer = document.querySelector("#input input").value;
         socket.emit("answer", { token: getCookie("ut"), answer: answer });
+    }
+    roundVerify(data) {
+        if (data !== PLAYER.player_id)
+            return;
+        console.log(data);
+    }
+    roundResults(data) {
+        console.log(data);
     }
     roundPick(type, btn) {
         this.btn = btn;

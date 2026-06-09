@@ -43,7 +43,6 @@ interface Round {
     player_22: number | null;
 }
 
-
 function getCookie(name: string) {
     const cookieString = document.cookie;
     const cookies = cookieString.split(';');
@@ -113,6 +112,8 @@ class GameController {
         socket.on("round_countdown", () => this.roundCountdown());
         socket.on("round_answer", () => this.roundAnswer());
         socket.on("round_end", () => this.roundEnd());
+        socket.on("round_verify", (data: number) => this.roundVerify(data));
+        socket.on("round_result", (data: number[][]) => this.roundResults(data));
 
         socket.on("connect", () => {
             console.log("CONNECTED");
@@ -262,6 +263,15 @@ class GameController {
         socket.emit("answer", {token: getCookie("ut")!, answer: answer});
     }
 
+    private roundVerify(data: number): void {
+        if (data !== PLAYER.player_id) return;
+        console.log(data);
+    }
+
+    private roundResults(data: number[][]): void {
+        console.log(data)
+    }
+    
     public roundPick(type: number, btn: HTMLButtonElement): void {
         this.btn = btn;
         this.btn.disabled = true;

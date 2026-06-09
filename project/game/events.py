@@ -30,11 +30,7 @@ def start_next_round(room: RoomDict) -> None:
 
 def start_timer(room: RoomDict) -> None:
     if room["round"]["game_mode"] == 1:
-        socketio.emit(
-            "round_target", 
-            room["round"]["game_data"]["target"][0], # type: ignore <-- complains about game_data possible None (not in the mood for an assertion) 
-            to=room["id"]
-        )
+        socketio.emit("round_target", room["round_private"]["TARGET"][0], to=room["id"])
         socketio.sleep(2)
 
     else:
@@ -42,27 +38,27 @@ def start_timer(room: RoomDict) -> None:
 
     socketio.emit("round_countdown", to=room["id"])
 
-    # 30 second countdown -> answers    
+    # 30 (+ short grace) second countdown -> answers    
     room["state"] = GameState.ROUND_COUNTDOWN.name
     cache.set(room["id"], room, timeout=2 * 60 * 60)
 
-    socketio.sleep(30)
+    socketio.sleep(32)
     socketio.emit("round_answer", to=room["id"])
 
     room["state"] = GameState.ROUND_ANSWER.name
     cache.set(room["id"], room, timeout=2 * 60 * 60)
 
-    # 5 second grace period to fill in answer
+    # 5 second period to fill in answer
     socketio.sleep(5)
     socketio.emit("round_end", to=room["id"])
-
-    # Answers deadline
-    socketio.sleep(1)
 
     room["state"] = GameState.ROUND_REVEAL.name
     cache.set(room["id"], room, timeout=2 * 60 * 60)
 
     socketio.sleep(1)
+
+    Room.evaluate_answers(room)
+    cache.set(room["id"], room, timeout=2 * 60 * 60)
 
 
 def register_events(socketio: SocketIO):

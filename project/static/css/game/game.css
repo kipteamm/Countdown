@@ -7,11 +7,13 @@ body {
 
 .state {
     display: none;
-
-    [data-state="waiting"] {
-        max-width: 800px;
-        margin: 0 auto;
-    }
+}
+.state:not([data-state="waiting"]) {
+    user-select: none;
+}
+.state.center {
+    max-width: 800px;
+    margin: 0 auto;
 }
 .state.active {
     display: block;

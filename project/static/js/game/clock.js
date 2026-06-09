@@ -1,6 +1,8 @@
 "use strict";
 let isRunning = false;
 let animationId = null;
+const countdownAudio = new Audio('/static/sounds/tune.mp3');
+countdownAudio.volume = 0.5;
 function getArcPath(centerX, centerY, radius, startAngle, endAngle) {
     const startRad = (startAngle - 90) * Math.PI / 180.0;
     const endRad = (endAngle - 90) * Math.PI / 180.0;
@@ -12,6 +14,11 @@ function getArcPath(centerX, centerY, radius, startAngle, endAngle) {
     return `M ${centerX} ${centerY} L ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
 }
 function resetClock() {
+    countdownAudio.pause();
+    countdownAudio.currentTime = 0;
+    if (animationId !== null) {
+        cancelAnimationFrame(animationId);
+    }
     const startAngle = 180;
     const endAngle = 360;
     const durationMs = 2000;
@@ -42,7 +49,6 @@ function resetClock() {
     }
     animationId = requestAnimationFrame(animateReset);
 }
-;
 function startCountdown() {
     if (animationId !== null) {
         cancelAnimationFrame(animationId);
@@ -52,13 +58,15 @@ function startCountdown() {
     const startAngle = 0;
     const endAngle = 180;
     const angleRange = endAngle - startAngle;
-    const durationMs = 30 * 1000;
-    const startTime = Date.now();
+    countdownAudio.currentTime = 0;
+    countdownAudio.play().catch(err => {
+        console.warn("Audio playback failed. Ensure user interacted with the page first:", err);
+    });
     function animate() {
-        const elapsedMs = Date.now() - startTime;
-        let progress = elapsedMs / durationMs;
-        if (isNaN(progress))
+        let progress = countdownAudio.currentTime / countdownAudio.duration;
+        if (isNaN(progress)) {
             progress = 0;
+        }
         progress = Math.max(0, Math.min(progress, 1.0));
         const currentAngle = startAngle + (angleRange * progress);
         const handGroups = document.querySelectorAll('.hand-group');
@@ -76,7 +84,7 @@ function startCountdown() {
                 area.setAttribute('opacity', '0');
             }
         });
-        if (progress < 1.0) {
+        if (progress < 1.0 && !countdownAudio.ended) {
             animationId = requestAnimationFrame(animate);
         }
         else {
@@ -84,9 +92,8 @@ function startCountdown() {
             handGroups.forEach(hand => hand.setAttribute('transform', `translate(200, 200) rotate(${endAngle})`));
             const finalPath = getArcPath(200, 200, 145, startAngle, endAngle);
             litAreas.forEach(area => area.setAttribute('d', finalPath));
-            window.resetClock();
+            resetClock();
         }
     }
     animationId = requestAnimationFrame(animate);
 }
-;

@@ -13,7 +13,9 @@ class AnonymousUserDict(t.TypedDict):
 
     player_id: int | None
     room_id: str | None
+    team_id: int | None
     ready: bool
+    answer: str | int | None
 
 
 class AnonymousUser(UserMixin):
@@ -22,8 +24,9 @@ class AnonymousUser(UserMixin):
 
     player_id: int | None = None
     room_id: str | None = None
+    team_id: int | None = None
     ready: bool = False
-    answer: str
+    answer: str | int | None = None
 
     def __init__(self, username: str) -> None:
         self.id = secrets.token_urlsafe(64)
@@ -62,7 +65,9 @@ class AnonymousUser(UserMixin):
             "username": self.username,
             "player_id": self.player_id,
             "room_id": self.room_id,
-            "ready": self.ready
+            "team_id": self.team_id,
+            "ready": self.ready,
+            "answer": self.answer
         }
     
     def serialize_player(self) -> dict[str, int | str]:
