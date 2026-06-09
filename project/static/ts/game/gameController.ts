@@ -62,7 +62,9 @@ enum GameState {
     ROUND_NEW,
     ROUND_LETTERS,
     ROUND_NUMBERS,
-    ROUND_CONUNDRUM
+    ROUND_CONUNDRUM,
+    ROUND_COUNTDOWN,
+    ROUND_ANSWER,
 }
 
 function _toState(name: string): GameState {
@@ -107,6 +109,8 @@ class GameController {
         socket.on("round_new", (data: Round) => this.newRound(data))
         socket.on("round_start", (data: Round) => this.roundStart(data))
         socket.on("round_entity", (data: GameData) => this.roundEntity(data));
+        socket.on("round_target", (data: number)=> this.roundTarget(data));
+        socket.on("round_countdown", () => this.roundCountdown());
 
         socket.on("connect", () => {
             console.log("CONNECTED");
@@ -204,24 +208,27 @@ class GameController {
     }
 
     private roundEntity(data: GameData): void {
-        this.entities = (this.entities || document.getElementById((this.state === GameState.ROUND_LETTERS? "letter": "number") + "-entities")!);
+        this.entities = (this.entities || document.getElementById((this.state === GameState.ROUND_LETTERS ? "letter" : "number") + "-entities")!);
 
         if (this.state === GameState.ROUND_LETTERS) {
-            for (const letter of (data.letters as string[])) {
-                //@ts-ignore
-                if (this.gameData!.letters.includes(letter)) continue
+            const prevLength = this.gameData?.letters?.length || 0;
+            const newLetters = (data.letters as string[]).slice(prevLength);
+
+            for (const letter of newLetters) {
                 this.entities.innerHTML += `<div class="entity">${letter}</div>`;
             }
         } else {
-            for (const number of (data.small as number[])) {
-                //@ts-ignore
-                if (this.gameData!.letters.includes(number)) continue
+            const prevLargeLength = this.gameData?.large?.length || 0;
+            const newLarge = (data.large as number[]).slice(prevLargeLength);
+
+            for (const number of newLarge) {
                 this.entities.innerHTML += `<div class="entity">${number}</div>`;
             }
-    
-            for (const number of (data.small as number[])) {
-                //@ts-ignore
-                if (this.gameData!.letters.includes(number)) continue
+
+            const prevSmallLength = this.gameData?.small?.length || 0;
+            const newSmall = (data.small as number[]).slice(prevSmallLength);
+
+            for (const number of newSmall) {
                 this.entities.innerHTML += `<div class="entity">${number}</div>`;
             }
         }
@@ -230,6 +237,14 @@ class GameController {
 
         if (!this.btn) return;
         this.btn.disabled = false;
+    }
+
+    private roundTarget(target: number): void {
+        document.getElementById("number-target")!.innerText = target.toString();
+    }
+
+    private roundCountdown(): void {
+        console.log("counting down");
     }
 
     public roundPick(type: number, btn: HTMLButtonElement): void {

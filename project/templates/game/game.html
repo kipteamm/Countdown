@@ -42,8 +42,11 @@
 
     <div class="state" data-state="round-new"></div>
     <div class="state{% if room.state.value == 2 %} active{% endif %}" data-state="round-letters">
+        <div class="clock">
+            {% include "game/clock.html" %}
+        </div>
         <div class="board">
-            <div class="entities" style="width:588px;" id="letter-entities"></div>
+            <div class="entities" style="width:600px;" id="letter-entities"></div>
     
             <div class="options">
                 <button onclick="game.roundPick(1, this)">Vowel</button>
@@ -52,9 +55,19 @@
         </div>
     </div>
     <div class="state{% if room.state.value == 3 %} active{% endif %}" data-state="round-numbers">
+        <div class="clock">
+            {% include "game/clock.html" %}
+        </div>
         <div class="board">
             <div class="target" id="number-target">XXX</div>
-            <div class="entities" style="width:390px;" id="number-entities"></div>
+            <div class="entities" style="width:402px;" id="number-entities">
+                <div class="entity">100</div>
+                <div class="entity">100</div>
+                <div class="entity">100</div>
+                <div class="entity">100</div>
+                <div class="entity">100</div>
+                <div class="entity">100</div>
+            </div>
 
             <div class="options">
                 <button onclick="game.roundPick(1, this)">Large</button>
@@ -63,4 +76,6 @@
         </div>
     </div>
     <div class="state" data-state="round-conundrum"></div>
+
+    <h1 id="status" style="position: fixed;top:0">??</h1>
 {% endblock %}

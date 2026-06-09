@@ -13,6 +13,8 @@ class GameState(e.Enum):
     ROUND_LETTERS = 2
     ROUND_NUMBERS = 3
     ROUND_CONUNDRUM = 4
+    ROUND_COUNTDOWN = 5
+    ROUND_ANSWER = 6
 
 
 class RoundDict(t.TypedDict):
@@ -36,6 +38,8 @@ class RoomDict(t.TypedDict):
     state: str
     round_number: int
     round: RoundDict
+    round_private: dict[str, list]
+    timestamp: float
 
     creator_id: str
     player_ids: list[str]
@@ -43,7 +47,7 @@ class RoomDict(t.TypedDict):
     team_2_ids: list[str]
 
 
-VOWELS_LOOKUP = {'a', 'e', 'i', 'o', 'u'}
+VOWELS_LOOKUP = {'A', 'E', 'I', 'O', 'U'}
 VOWELS = list("AAAAAEEEEEEEEIIIIIOOOOOOUUU")
 CONSONANTS = list("BBCCDDDDFFGGGHHJKLLLLMMNNNNNPPQRRRRRRSSSSSSTTTTTTVVWWXYZ")
 
@@ -59,6 +63,8 @@ class Room:
     state: GameState
     round_number: int
     round: RoundDict
+    round_private: dict[str, list]
+    timestamp: float
 
     creator: AnonymousUser
     players: list[AnonymousUser]
@@ -74,6 +80,8 @@ class Room:
         self.round_number = 0
         # Assure to be set when calling .start()
         self.round = {} # type: ignore
+        self.round_private = {}
+        self.timestamp = 0
 
         self.players = []
         self.team_1 = []
@@ -159,23 +167,30 @@ class Room:
         }
     
 
-    def _letters_round(self) -> dict:
-        return {
-            "letters": [],
+    def _letters_round(self) -> dict[str, list]:
+        self.round_private = {
             # We use weighted distributions as the real game does, in order to
             # somewhat control the random outcomes.
             "VOWELS": random.sample(VOWELS, len(VOWELS)),
             "CONSONANTS": random.sample(CONSONANTS, len(CONSONANTS)),
         }
-    
-    def _numbers_round(self) -> dict:
+
         return {
-            "large": [],
-            "small": [],
+            "letters": [],
+        }
+    
+    def _numbers_round(self) -> dict[str, list]:
+        self.round_private = {
+            "TARGET": [random.randint(101, 999)],
             # We use weighted distributions as the real game does, in order to
             # somewhat control the random outcomes.
             "LARGE": random.sample(LARGE_NUMBERS, len(LARGE_NUMBERS)),
             "SMALL": random.sample(SMALL_NUMBERS, len(SMALL_NUMBERS))
+        }
+
+        return {
+            "large": [],
+            "small": [],
         }
 
     def _all_round(self) -> None:
@@ -241,40 +256,39 @@ class Room:
             letters = self.round["game_data"]["letters"]
 
             total = len(letters)
+            if total >= 9: 
+                return
+
             vowels = sum(1 for string in letters for char in string if char in VOWELS_LOOKUP)
             consonants = total - vowels
 
-            if type == 1:
-                if vowels == 5: return
-                if (9 - total) == (4 - consonants): return
+            if vowels == 5: type = 0
+            elif consonants == 6: type = 1
+            elif (9 - total) == (4 - consonants): type = 0
+            elif (9 - total) == (3 - vowels): type = 1
 
-                letters.append(self.round["game_data"]["VOWELS"].pop())
+            if type == 1:
+                letters.append(self.round_private["VOWELS"].pop())
 
             else:
-                if consonants == 6: return
-                if (9 - total) == (3 - vowels): return
-
-                letters.append(self.round["game_data"]["CONSONANTS"].pop())
-
+                letters.append(self.round_private["CONSONANTS"].pop())
         
         elif self.round["game_mode"] == 1:
-            if len(self.round["game_data"]["large"]) + len(self.round["game_data"]["small"]) == 6: return
-
             large_picked = len(self.round["game_data"]["large"])
             small_picked = len(self.round["game_data"]["small"])
+            total_picked = large_picked + small_picked
 
-            if (large_picked + small_picked) == 6: return
+            if total_picked >= 6: return
+
+            if large_picked == 4: type = 0
+            elif small_picked == 6: type = 1
+            elif (6 - total_picked) == (2 - small_picked): type = 0
 
             if type == 1:
-                if large_picked == 4: return
-
-                number = self.round["game_data"]["LARGE"].pop()
+                number = self.round_private["LARGE"].pop()
                 self.round["game_data"]["large"].append(number)
-
             else:
-                if small_picked == 6: return
-
-                number = self.round["game_data"]["SMALL"].pop()
+                number = self.round_private["SMALL"].pop()
                 self.round["game_data"]["small"].append(number)
 
 
@@ -288,6 +302,8 @@ class Room:
             "team_size": self.team_size,
             "round_number": self.round_number,
             "round": self.round,
+            "round_private": self.round_private,
+            "timestamp": self.timestamp,
             "state": self.state.name,
             "creator_id": self.creator.id,
             "player_ids": [player.id for player in self.players],

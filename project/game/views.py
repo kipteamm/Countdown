@@ -24,7 +24,7 @@ def test():
     current_user.player_id = -1
 
     room = Room(1, current_user)
-    room.state = GameState.ROUND_LETTERS
+    room.state = GameState.ROUND_NUMBERS
 
     return render_template("game/game.html", room=room)
 

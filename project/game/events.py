@@ -1,9 +1,11 @@
 from project.auth.models import AnonymousUser
-from project.game.models import Room, RoomDict, GameState
+from project.game.models import Room, RoomDict, GameState, RoundDict
 from project.extensions import socketio, cache
 
 from flask_socketio import SocketIO, join_room, leave_room
 from flask import request
+
+import time
 
 
 playing_users = {}
@@ -24,6 +26,27 @@ def start_next_round(room: RoomDict) -> None:
         room["state"] = GameState.ROUND_CONUNDRUM.name
     
     cache.set(room["id"], room, timeout=2 * 60 * 60)
+
+
+def start_timer(room: RoomDict) -> None:
+    if room["round"]["game_mode"] == 1:
+        socketio.emit(
+            "round_target", 
+            room["round"]["game_data"]["target"][0], # type: ignore <-- complains about game_data possible None (not in the mood for an assertion) 
+            to=room["id"]
+        )
+        socketio.sleep(2)
+
+    else:
+        socketio.sleep(1)
+
+    socketio.emit("round_countdown", to=room["id"])
+    
+    socketio.sleep(30)
+
+    socketio.emit("round_end", to=room["id"])
+    room["state"] = GameState.ROUND_ANSWER.name
+    room["timestamp"] = time.time()
 
 
 def register_events(socketio: SocketIO):
@@ -81,6 +104,16 @@ def register_events(socketio: SocketIO):
         if room.round["starting_player"] != user.player_id: return
 
         room.pick(data["type"])
+        assert room.round["game_data"] != None, "lmfao"
+
+        # Start the 30 second COUNTDOWN timer condition for each minigame
+        if room.state == GameState.ROUND_LETTERS and len(room.round["game_data"]["letters"]) == 9:
+            room.state = GameState.ROUND_COUNTDOWN
+            socketio.start_background_task(start_timer, room.serialize())
+        if room.state == GameState.ROUND_NUMBERS and len(room.round["game_data"]["small"]) + len(room.round["game_data"]["large"]) == 6:
+            room.state = GameState.ROUND_COUNTDOWN
+            socketio.start_background_task(start_timer, room.serialize())
+
         room.save()
 
         socketio.emit("round_entity", room.round["game_data"], to=room.id)

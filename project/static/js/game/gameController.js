@@ -16,6 +16,8 @@ var GameState;
     GameState[GameState["ROUND_LETTERS"] = 2] = "ROUND_LETTERS";
     GameState[GameState["ROUND_NUMBERS"] = 3] = "ROUND_NUMBERS";
     GameState[GameState["ROUND_CONUNDRUM"] = 4] = "ROUND_CONUNDRUM";
+    GameState[GameState["ROUND_COUNTDOWN"] = 5] = "ROUND_COUNTDOWN";
+    GameState[GameState["ROUND_ANSWER"] = 6] = "ROUND_ANSWER";
 })(GameState || (GameState = {}));
 function _toState(name) {
     if (name === "waiting")
@@ -57,6 +59,8 @@ class GameController {
         socket.on("round_new", (data) => this.newRound(data));
         socket.on("round_start", (data) => this.roundStart(data));
         socket.on("round_entity", (data) => this.roundEntity(data));
+        socket.on("round_target", (data) => this.roundTarget(data));
+        socket.on("round_countdown", () => this.roundCountdown());
         socket.on("connect", () => {
             console.log("CONNECTED");
             if (isHost)
@@ -139,26 +143,24 @@ class GameController {
         this.stateParents[this.state].classList.add("starting");
     }
     roundEntity(data) {
+        var _a, _b, _c, _d, _e, _f;
         this.entities = (this.entities || document.getElementById((this.state === GameState.ROUND_LETTERS ? "letter" : "number") + "-entities"));
         if (this.state === GameState.ROUND_LETTERS) {
-            for (const letter of data.letters) {
-                //@ts-ignore
-                if (this.gameData.letters.includes(letter))
-                    continue;
+            const prevLength = ((_b = (_a = this.gameData) === null || _a === void 0 ? void 0 : _a.letters) === null || _b === void 0 ? void 0 : _b.length) || 0;
+            const newLetters = data.letters.slice(prevLength);
+            for (const letter of newLetters) {
                 this.entities.innerHTML += `<div class="entity">${letter}</div>`;
             }
         }
         else {
-            for (const number of data.small) {
-                //@ts-ignore
-                if (this.gameData.letters.includes(number))
-                    continue;
+            const prevLargeLength = ((_d = (_c = this.gameData) === null || _c === void 0 ? void 0 : _c.large) === null || _d === void 0 ? void 0 : _d.length) || 0;
+            const newLarge = data.large.slice(prevLargeLength);
+            for (const number of newLarge) {
                 this.entities.innerHTML += `<div class="entity">${number}</div>`;
             }
-            for (const number of data.small) {
-                //@ts-ignore
-                if (this.gameData.letters.includes(number))
-                    continue;
+            const prevSmallLength = ((_f = (_e = this.gameData) === null || _e === void 0 ? void 0 : _e.small) === null || _f === void 0 ? void 0 : _f.length) || 0;
+            const newSmall = data.small.slice(prevSmallLength);
+            for (const number of newSmall) {
                 this.entities.innerHTML += `<div class="entity">${number}</div>`;
             }
         }
@@ -166,6 +168,12 @@ class GameController {
         if (!this.btn)
             return;
         this.btn.disabled = false;
+    }
+    roundTarget(target) {
+        document.getElementById("number-target").innerText = target.toString();
+    }
+    roundCountdown() {
+        console.log("counting down");
     }
     roundPick(type, btn) {
         this.btn = btn;
