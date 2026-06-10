@@ -1,4 +1,4 @@
-from project.auth.models import AnonymousUser
+from project.auth.models import AnonymousUser, User
 from project.extensions import cache
 
 from flask import Blueprint, request, render_template, redirect

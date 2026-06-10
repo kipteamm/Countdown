@@ -32,6 +32,8 @@
         <h2>People are verifying their solution</h2>
     </div>
 
+    <div class="input conundrum" id="conundrum"></div>
+
     <div class="state center{% if room.state.value == 0 %} active{% endif %}" data-state="waiting">
         Invite people with code <b>{{ room.id }}</b> <br>
         Or with link <a href="#" onclick="navigator.clipboard.writeText(this.innerText);alert('Link copied to clipboard!');return false;">{{ request.scheme }}://{{ request.host }}/l?id={{ room.id }}</a>
@@ -106,9 +108,10 @@
             {% include "game/clock.html" %}
         </div>
         <div class="board">
-            <div class="entities" style="width:600px;" id="conundrum"></div>
+            <div class="entities" style="width:600px;" id="conundrum-entities"></div>
     
-            <button onclick="game.guessConundrum()">Make a guess</button>
+            <input type="text" id="conundrum-guess" placeholder="Guess" id="conundrum-guess">
+            <button onclick="game.guessConundrum(this)">Make guess</button>
         </div>
     </div>
     <div class="state center" data-state="round-replies"></div>

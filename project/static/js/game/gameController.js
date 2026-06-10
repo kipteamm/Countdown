@@ -176,16 +176,20 @@ class GameController {
         this.updateState(GameState.ROUND_NEW);
     }
     roundStart(data) {
-        const isLetters = data.game_mode === 0;
-        const state = isLetters ? GameState.ROUND_LETTERS : GameState.ROUND_NUMBERS;
+        const state = this.getGameMode(data.game_mode);
         console.log(data);
         this.gameData = data.game_data;
         this.updateState(state);
         if (this.game === GameState.ROUND_CONUNDRUM) {
-            const parent = document.getElementById("conundrum");
-            for (const letter of this.gameData.conundrum) {
+            document.getElementById("conundrum-guess").focus();
+            const parent = document.getElementById("conundrum-entities");
+            const conundrum = this.gameData.conundrum[0];
+            for (const letter of conundrum.split("")) {
                 parent.innerHTML += `<div class="entity">${letter}</div>`;
             }
+            if (!this.gameData.conundrum[1])
+                return;
+            parent.innerHTML += `<p>Todays hint: ${this.gameData.conundrum[1]}</p>`;
             return;
         }
         // Make options available to starting player
@@ -263,6 +267,24 @@ class GameController {
         this.entities = null;
         this.state = this.game;
     }
+    endGame(playerId, conundrum) {
+        if (typeof conundrum == "number")
+            return;
+        const conundrumReveal = document.getElementById("conundrum");
+        conundrumReveal.innerHTML = `<h2>${playerId === PLAYER.player_id ? "Correct!" : `${playerName(playerId)} guessed it correctly!`}</h2>`;
+        setTimeout(() => {
+            this.entities.innerHTML = "";
+            for (const char of conundrum.split("")) {
+                this.entities.innerHTML += `<div class="entity">${char}</div>`;
+            }
+        }, 3000);
+        setTimeout(() => {
+            const parent = this.stateParents[GameState.ROUND_REPLIES];
+            parent.innerHTML = "<h2>Final scores</h2>";
+            parent.innerHTML += `<div>${GAME.team_1.map(player => { player.username; }).join(" & ")} got: <b>${GAME.team_1_points}</b></div>`;
+            parent.innerHTML += `<div>${GAME.team_2.map(player => { player.username; }).join(" & ")} got: <b>${GAME.team_2_points}</b></div>`;
+        }, 7000);
+    }
     roundResults(data) {
         console.log(data);
         if (this.state === GameState.ROUND_VERIFY) {
@@ -276,6 +298,8 @@ class GameController {
             }
             GAME.team_2_points += entry[2];
         }
+        if (this.state === GameState.ROUND_CONUNDRUM)
+            return this.endGame(data[0][0], data[0][3]);
         this.reset();
         this.revealReplies();
         if (GAME.creator.player_id !== PLAYER.player_id)
@@ -425,8 +449,21 @@ class GameController {
             this.currentRule.appendChild(elm);
         }
     }
-    guessConundrum() {
-        socket.emit("guess", getCookie("ut"));
+    guessConundrum(btn) {
+        const guess = document.getElementById("conundrum-guess").value;
+        socket.emit("guess", { token: getCookie("ut"), guess: guess });
+        let timer = 5;
+        btn.disabled = true;
+        btn.innerText = `${timer}..`;
+        const id = setInterval(() => {
+            timer -= 1;
+            btn.innerText = `${timer}..`;
+            if (timer > 0)
+                return;
+            clearInterval(id);
+            btn.innerText = "Make guess";
+            btn.disabled = false;
+        }, 1000);
     }
 }
 const socket = io("", {

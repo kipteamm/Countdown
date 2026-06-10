@@ -1,6 +1,6 @@
 from project.game.functions import evaluate_rules
 from project.auth.models import AnonymousUser
-from project.game.models import Room, RoomDict, GameState, RoundDict
+from project.game.models import Room, RoomDict, GameState
 from project.extensions import socketio, cache
 
 from flask_socketio import SocketIO, join_room, leave_room
@@ -60,10 +60,10 @@ def start_timer(room: RoomDict) -> None:
 
     socketio.sleep(1)
 
-    Room.evaluate_answers(room, False)
+    answers = Room.evaluate_answers(room, False)
     cache.set(room["id"], room, timeout=2 * 60 * 60)
 
-    if room["round"]["game_mode"] != 1: 
+    if room["round"]["game_mode"] != 1 or len(answers) == 0: 
         room["state"] = GameState.ROUND_END.name
         cache.set(room["id"], room, timeout=2 * 60 * 60)
         return
@@ -167,6 +167,7 @@ def register_events(socketio: SocketIO):
 
         room = Room.get(user.room_id)
         if not room: return
+        assert room.round["game_data"], "plz no"
 
         answer = evaluate_rules(data["rules"], room.round["game_data"])
         user.answer = str(answer)
@@ -189,3 +190,24 @@ def register_events(socketio: SocketIO):
         room.save()
 
         socketio.start_background_task(start_next_round, room.serialize())
+
+    @socketio.on("guess_request")
+    def handle_guess(data: dict):
+        user: AnonymousUser | None = AnonymousUser.get(data["token"])
+        if not user: return
+        
+        room = Room.get(user.room_id)
+        if not room: return
+        if not room.state == GameState.ROUND_CONUNDRUM: return
+
+        now = time.time()
+        if user.answer and (now - float(user.answer)) < 5: return
+        user.answer = str(now)
+        user.save()
+
+        if data["answer"] != room.round_private["CONUNDRUM"]: return
+
+        room.state = GameState.ROUND_END
+        room.save()
+
+        socketio.emit("round_result", [(user.player_id, user.team_id, 10, room.round_private["CONUNDRUM"])], to=room.id)

@@ -82,5 +82,9 @@ class User(db.Model, AnonymousUser):
     username = db.Column(db.String(30))
     email: Mapped[str] = mapped_column(unique=True)
 
+    def __init__(self, email: str) -> None:
+        self.username = email.split("@")[0]
+        self.email = email
+
     def save(self) -> None:
         db.session.commit()

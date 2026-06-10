@@ -336,7 +336,7 @@ class Room:
 
 
     @classmethod
-    def _evaluate_letters(cls, room: RoomDict) -> None:
+    def _evaluate_letters(cls, room: RoomDict) -> list:
         # List of tuples (player_id, team, value, answer)
         answers = []
 
@@ -364,17 +364,18 @@ class Room:
             room[f"team_{answers[0][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
             room[f"team_{answers[1][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
             socketio.emit("round_result", answers[:2], to=room["id"])
-            return
+            return answers
 
         if len(answers) == 1:
             room[f"team_{answers[0][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
             socketio.emit("round_result", answers[:1], to=room["id"])
-            return
+            return answers
 
         socketio.emit("round_result", [], to=room["id"])
+        return answers
 
     @classmethod
-    def _evaluate_numbers(cls, room: RoomDict, verified: bool) -> None:
+    def _evaluate_numbers(cls, room: RoomDict, verified: bool) -> list:
         answers = []
 
         for id in room["player_ids"]:
@@ -400,20 +401,24 @@ class Room:
 
         if verified:
             socketio.emit("round_result", answers, to=room["id"])
-            return
+            return answers
 
         socketio.emit("round_replies", answers, to=room["id"])
         for i in range(len(answers)):
             socketio.emit("round_verify", answers[i][0], to=room["id"])
 
+        return answers
+
 
     @classmethod
-    def evaluate_answers(cls, room: RoomDict, verified: bool) -> None:
+    def evaluate_answers(cls, room: RoomDict, verified: bool) -> list:
         if room["round"]["game_mode"] == 0:
             return cls._evaluate_letters(room)
 
         if room["round"]["game_mode"] == 1:
-            return cls._evaluate_numbers(room, verified)        
+            return cls._evaluate_numbers(room, verified)      
+
+        return []  
 
 
     def save(self) -> None:
