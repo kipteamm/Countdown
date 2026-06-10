@@ -247,7 +247,7 @@ class Room:
         new_round = self._all_round_data()
         new_round["game_mode"] = 2
         new_round["game_data"] = {
-            "conundrum": [conundrum[0], conundrum[2]],
+            "conundrum": [conundrum[0]],
         }
         self.round_private = {
             "CONUNDRUM": [conundrum[1]]
@@ -416,7 +416,11 @@ class Room:
             return cls._evaluate_letters(room)
 
         if room["round"]["game_mode"] == 1:
-            return cls._evaluate_numbers(room, verified)      
+            return cls._evaluate_numbers(room, verified)     
+
+        if room["round"]["game_mode"] == 2:
+            socketio.emit("round_result", [[-1, -1, -1, room["round_private"]["CONUNDRUM"]]], to=room["id"])
+            return [] 
 
         return []  
 

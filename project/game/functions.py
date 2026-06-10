@@ -3,6 +3,8 @@ import re
 
 def evaluate_rules(rules: list[str], numbers: dict[str, list]) -> int:
     pool = (numbers["large"] + numbers["small"]).copy()
+    print(pool)
+    print(rules)
 
     final_res = -1
     for rule in rules:

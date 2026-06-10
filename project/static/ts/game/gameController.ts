@@ -266,9 +266,6 @@ class GameController {
                 parent.innerHTML += `<div class="entity">${letter}</div>`;
             }
 
-            if (!this.gameData.conundrum[1]) return;
-            parent.innerHTML += `<p>Todays hint: ${this.gameData.conundrum[1]}</p>`;
-
             return;
         }
 
@@ -358,7 +355,7 @@ class GameController {
 
         document.getElementById("number-target")!.innerText = "000";
         document.querySelectorAll(".rule").forEach(elm => {
-            this.releaseRule((elm as HTMLElement));
+            if (elm.id !== "no-remove") this.releaseRule((elm as HTMLElement));
         });
 
         this.entities!.innerHTML = "";
@@ -369,16 +366,20 @@ class GameController {
 
     private endGame(playerId: number, conundrum: string | number): void {
         if (typeof conundrum == "number") return;
+        let revealTimout = 0;
 
-        const conundrumReveal = document.getElementById("conundrum");
-        conundrumReveal!.innerHTML = `<h2>${playerId === PLAYER.player_id? "Correct!": `${playerName(playerId)} guessed it correctly!`}</h2>`;
+        if (playerId > 0) {
+            const conundrumReveal = document.getElementById("conundrum");
+            conundrumReveal!.innerHTML = `<h2>${playerId === PLAYER.player_id? "Correct!": `${playerName(playerId)} guessed it correctly!`}</h2>`;
+            revealTimout = 3000;
+        }
 
         setTimeout(() => {
             this.entities!.innerHTML = "";
             for (const char of conundrum.split("")) {
                 this.entities!.innerHTML += `<div class="entity">${char}</div>`;
             }
-        }, 3000);
+        }, revealTimout);
 
         setTimeout(() => {
             const parent = this.stateParents[GameState.ROUND_REPLIES];
@@ -386,7 +387,7 @@ class GameController {
 
             parent.innerHTML += `<div>${GAME.team_1.map(player => { player.username }).join(" & ")} got: <b>${GAME.team_1_points}</b></div>`;
             parent.innerHTML += `<div>${GAME.team_2.map(player => { player.username }).join(" & ")} got: <b>${GAME.team_2_points}</b></div>`;
-        }, 7000);
+        }, 4000 + revealTimout);
     }
 
     private roundResults(data: number[][]): void {

@@ -13,7 +13,7 @@ playing_users = {}
 
 
 def start_next_round(room: RoomDict) -> None:
-    socketio.sleep(10)
+    socketio.sleep(15)
 
     socketio.emit("round_start", room["round"], to=room["id"])
 
@@ -25,6 +25,7 @@ def start_next_round(room: RoomDict) -> None:
     
     else:
         room["state"] = GameState.ROUND_CONUNDRUM.name
+        socketio.start_background_task(start_timer, room)
     
     cache.set(room["id"], room, timeout=2 * 60 * 60)
 
@@ -43,7 +44,12 @@ def start_timer(room: RoomDict) -> None:
     room["state"] = GameState.ROUND_COUNTDOWN.name
     cache.set(room["id"], room, timeout=2 * 60 * 60)
 
-    socketio.sleep(32)
+    for _ in range(31):
+        socketio.sleep(1)
+        current_room = cache.get(room["id"])
+
+        if current_room and current_room["state"] == GameState.ROUND_END.name: return
+
     socketio.emit("round_answer", to=room["id"])
 
     room["state"] = GameState.ROUND_ANSWER.name
@@ -63,9 +69,16 @@ def start_timer(room: RoomDict) -> None:
     answers = Room.evaluate_answers(room, False)
     cache.set(room["id"], room, timeout=2 * 60 * 60)
 
-    if room["round"]["game_mode"] != 1 or len(answers) == 0: 
+    if room["round"]["game_mode"] != 1: 
         room["state"] = GameState.ROUND_END.name
         cache.set(room["id"], room, timeout=2 * 60 * 60)
+        return
+
+    if len(answers) == 0:
+        room["state"] = GameState.ROUND_END.name
+        cache.set(room["id"], room, timeout=2 * 60 * 60)
+
+        socketio.emit("round_result", [], to=room["id"])
         return
 
     socketio.sleep(21)

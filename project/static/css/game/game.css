@@ -1,7 +1,5 @@
 body {
-    margin: 0;
     background-image: url("/static/images/background.avif");
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: white;
     overflow-x: hidden;
 }
@@ -30,6 +28,13 @@ body.verify {
     .rule {
         display: flex;
     }
+}
+
+input  {
+    font-size: 20px;
+    outline-color: rgb(234, 0, 255);
+    padding: 4px 8px;
+    border-radius: 4px;
 }
 
 .teams {
