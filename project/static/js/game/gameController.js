@@ -182,10 +182,10 @@ class GameController {
         this.updateState(state);
         if (this.game === GameState.ROUND_CONUNDRUM) {
             document.getElementById("conundrum-guess").focus();
-            const parent = document.getElementById("conundrum-entities");
+            this.entities = document.getElementById("conundrum-entities");
             const conundrum = this.gameData.conundrum[0];
             for (const letter of conundrum.split("")) {
-                parent.innerHTML += `<div class="entity">${letter}</div>`;
+                this.entities.innerHTML += `<div class="entity">${letter}</div>`;
             }
             return;
         }

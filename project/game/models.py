@@ -366,13 +366,12 @@ class Room:
             socketio.emit("round_result", answers[:2], to=room["id"])
             return answers
 
-        if len(answers) == 1:
+        if answers:
             room[f"team_{answers[0][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
-            socketio.emit("round_result", answers[:1], to=room["id"])
-            return answers
-
-        socketio.emit("round_result", [], to=room["id"])
+        
+        socketio.emit("round_result", answers[:1], to=room["id"])
         return answers
+
 
     @classmethod
     def _evaluate_numbers(cls, room: RoomDict, verified: bool) -> list:
@@ -419,7 +418,7 @@ class Room:
             return cls._evaluate_numbers(room, verified)     
 
         if room["round"]["game_mode"] == 2:
-            socketio.emit("round_result", [[-1, -1, -1, room["round_private"]["CONUNDRUM"]]], to=room["id"])
+            socketio.emit("round_result", [[-1, -1, -1, room["round_private"]["CONUNDRUM"][0]]], to=room["id"])
             return [] 
 
         return []  
