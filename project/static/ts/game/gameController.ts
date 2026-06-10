@@ -101,6 +101,7 @@ class GameController {
     
     private game: GameState | null = null;
     private replies: number[][] = [];
+    private results: number[][] = [];
 
     private btn: HTMLButtonElement | null = null;
     private entities: HTMLElement | null = null;
@@ -276,6 +277,7 @@ class GameController {
 
     private roundEntity(data: GameData): void {
         this.entities = (this.entities || document.getElementById((this.state === GameState.ROUND_LETTERS ? "letter" : "number") + "-entities")!);
+        let last = false;
 
         if (this.state === GameState.ROUND_LETTERS) {
             const prevLength = this.gameData?.letters?.length || 0;
@@ -284,6 +286,8 @@ class GameController {
             for (const letter of newLetters) {
                 this.entities.innerHTML += `<div class="entity">${letter}</div>`;
             }
+
+            last = this.entities.children.length === 9;
         } else {
             const prevLargeLength = this.gameData?.large?.length || 0;
             const newLarge = (data.large as number[]).slice(prevLargeLength);
@@ -298,11 +302,13 @@ class GameController {
             for (const number of newSmall) {
                 this.entities.innerHTML += `<div class="entity" onclick="game.verifyToggle(this, false)">${number}</div>`;
             }
+
+            last = this.entities.children.length === 6;
         }
 
         this.gameData = data;
 
-        if (!this.btn) return;
+        if (!this.btn || last) return;
         this.btn.disabled = false;
     }
 
@@ -387,11 +393,13 @@ class GameController {
 
             parent.innerHTML += `<div>${GAME.team_1.map(player => { player.username }).join(" & ")} got: <b>${GAME.team_1_points}</b></div>`;
             parent.innerHTML += `<div>${GAME.team_2.map(player => { player.username }).join(" & ")} got: <b>${GAME.team_2_points}</b></div>`;
+            this.updateState(GameState.ROUND_REPLIES);
         }, 4000 + revealTimout);
     }
 
     private roundResults(data: number[][]): void {
         console.log(data);
+        this.results = data;
 
         if (this.state === GameState.ROUND_VERIFY) {
             document.getElementById("verifying")!.classList.remove("active");
@@ -425,8 +433,11 @@ class GameController {
         this.updateState(GameState.ROUND_REPLIES);
 
         setTimeout(() => {
-            for (const entry of this.replies) {
-                parent.innerHTML += `<div>${playerName(entry[0])} got <b>${entry[3]}</b></div>`
+            for (let i = 0; i < this.replies.length; i++) {
+                const reply = this.replies[i];
+                const result = (this.results[i] || [0, 0, 0, 0]);
+
+                parent.innerHTML += `<div>${playerName(reply[0])} got <b>${reply[3]}${result[2] > 0? `&emsp;(+${result[2]})`: ""}</b></div>`;
             }
             if (!this.replies) {
                 parent.innerHTML += `<div>No one got anything</div>`;

@@ -218,7 +218,7 @@ def register_events(socketio: SocketIO):
         user.answer = str(now)
         user.save()
 
-        if data["answer"] != room.round_private["CONUNDRUM"]: return
+        if data["answer"].upper() != room.round_private["CONUNDRUM"]: return
 
         room.state = GameState.ROUND_END
         room.save()

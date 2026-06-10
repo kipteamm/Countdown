@@ -20,6 +20,9 @@ body:not(.verify) {
     .rules {
         display: none;
     }
+    .board .timer {
+        display: none;
+    }
 }
 body.verify {
     .bar {
