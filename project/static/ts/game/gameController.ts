@@ -1,5 +1,5 @@
 declare const PLAYER: PlayerData;
-declare const GAME: Game;
+declare let GAME: Game;
 
 declare const io: any;
 
@@ -25,6 +25,10 @@ interface Game {
     token: string;
     team_size: number;
     creator: PlayerData;
+    team_1: PlayerData[];
+    team_1_points: number;
+    team_2: PlayerData[];
+    team_2_points: number;
     players: PlayerData[];
 }
 
@@ -90,6 +94,9 @@ class GameController {
     private stateParents: Record<GameState, HTMLElement> = {} as Record<GameState, HTMLElement>;
     private state: GameState = GameState.WAITING;
 
+    private team1: HTMLElement | null = null;
+    private team2: HTMLElement | null = null;
+
     private btn: HTMLButtonElement | null = null;
     private entities: HTMLElement | null = null;
     private gameData: GameData | null = null;
@@ -118,6 +125,8 @@ class GameController {
         socket.on("round_verify", (data: number) => this.roundVerify(data));
         socket.on("round_result", (data: number[][]) => this.roundResults(data));
 
+        // Game
+        socket.on("game_start", (data: Game) => this.startGame(data));
         socket.on("connect", () => {
             console.log("CONNECTED");
             if (isHost) return; 
@@ -160,9 +169,24 @@ class GameController {
         `;
     }
 
+    private updateTeam(): void {
+        this.team1!.innerHTML = `<div>${GAME.team_1.map(user => user.username).join('<br>')}</div><b>${GAME.team_1_points}</b>`;
+        this.team2!.innerHTML = `<div>${GAME.team_2.map(user => user.username).join('<br>')}</div><b>${GAME.team_2_points}</b>`;
+    }
+
+    private startGame(data: Game): void {
+        GAME = data;
+        
+        this.team1 = (this.team1 || document.getElementById("team-1"!));
+        this.team2 = (this.team2 || document.getElementById("team-2"!));
+
+        this.updateTeam();
+    }
+
     private updateState(state: GameState): void {
         this.stateParents[this.state].classList.remove("active");
         this.state = state;
+        console.log(`[STATE] ${state}`)
         this.stateParents[this.state].classList.add("active");
     }
 
@@ -263,23 +287,67 @@ class GameController {
         console.log("SENDING ANSWER")
 
         document.getElementById("submit")!.classList.remove("active");
-        const answer = (document.querySelector("#submit input") as HTMLInputElement).value;
+        const input = document.querySelector("#submit input") as HTMLInputElement
+        const answer = input.value;
 
         socket.emit("answer", {token: getCookie("ut")!, answer: answer});
+        input.value = "";
     }
 
     private roundVerify(data: number): void {
+        this.state = GameState.ROUND_VERIFY;
+
         if (data !== PLAYER.player_id) {
             document.getElementById("verifying")!.classList.add("active");
             return;
         }
 
-        this.state = GameState.ROUND_VERIFY;
         document.body.classList.add("verify");
+        
+        setTimeout(() => {
+            document.body.classList.remove("verify");
+            socket.emit("verify", {token: getCookie("ut")!, rules: this.getRules()});
+        }, 20 * 1000);
     }
 
     private roundResults(data: number[][]): void {
-        console.log(data)
+        console.log(data);
+
+        if (this.state === GameState.ROUND_VERIFY) {
+            document.getElementById("verifying")!.classList.remove("active");
+            document.body.classList.remove("verify");
+            this.state = GameState.ROUND_NUMBERS;
+        }
+
+        for (const entry of data) {
+            if (entry[1] === 1) {
+                GAME.team_1_points += entry[2];
+                continue;
+            }
+            GAME.team_2_points += entry[2];
+        }
+
+        this.team1!.innerHTML = "";
+        this.team2!.innerHTML = "";
+
+        this.updateTeam();
+
+        this.entities!.innerHTML = "";
+        this.entities = null;
+
+        console.log("NEXT ROUND");
+        socket.emit("next", getCookie("ut")!);
+    }
+
+    private getRules(): string[] {
+        const rules: string[] = [];
+
+        //@ts-ignore
+        for (const elm of document.getElementById("rules")!.children) {
+            rules.push(elm.getAttribute("data-equation")!);
+        }
+
+        return rules;
     }
     
     public roundPick(type: number, btn: HTMLButtonElement): void {
@@ -309,7 +377,7 @@ class GameController {
             }
         });
 
-        const ruleString = ruleElm.getAttribute("data-rule-string");
+        const ruleString = ruleElm.getAttribute("data-equation");
         if (ruleString) {
             const generatedResultElm = numberPool.querySelector(`[data-from-rule="${ruleString}"]`);
             if (generatedResultElm) {
@@ -326,6 +394,7 @@ class GameController {
         if (this.currentRule.childElementCount < 3) return;
         let rule = "";
         
+        //@ts-ignore
         for (const elm of this.currentRule.children) {
             const value = (elm as HTMLElement).innerText.replace("×", "*").replace("÷", "/");
             rule += value;
@@ -352,7 +421,7 @@ class GameController {
 
         const ruleElm = document.createElement("div");
         ruleElm.classList.add("rule"); 
-        ruleElm.setAttribute("data-rule-string", rule);       
+        ruleElm.setAttribute("data-equation", rule);       
         ruleElm.appendChild(ruleElms); 
         
         const releaseElm = document.createElement("div");

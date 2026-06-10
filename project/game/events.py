@@ -1,3 +1,4 @@
+from project.game.functions import evaluate_rules
 from project.auth.models import AnonymousUser
 from project.game.models import Room, RoomDict, GameState, RoundDict
 from project.extensions import socketio, cache
@@ -53,13 +54,25 @@ def start_timer(room: RoomDict) -> None:
     socketio.emit("round_end", to=room["id"])
 
     socketio.sleep(1)
-    
+
     room["state"] = GameState.ROUND_REVEAL.name
     cache.set(room["id"], room, timeout=2 * 60 * 60)
 
     socketio.sleep(1)
 
-    Room.evaluate_answers(room)
+    Room.evaluate_answers(room, False)
+    cache.set(room["id"], room, timeout=2 * 60 * 60)
+
+    if room["round"]["game_mode"] != 1: 
+        room["state"] = GameState.ROUND_END.name
+        cache.set(room["id"], room, timeout=2 * 60 * 60)
+        return
+
+    socketio.sleep(21)
+
+    Room.evaluate_answers(room, True)
+
+    room["state"] = GameState.ROUND_END.name
     cache.set(room["id"], room, timeout=2 * 60 * 60)
 
 
@@ -105,6 +118,8 @@ def register_events(socketio: SocketIO):
         room.prepare_next_round()
         room.save()
 
+        socketio.emit("game_start", room.serialize_game(), to=room.id)
+
         socketio.start_background_task(start_next_round, room.serialize())
 
 
@@ -143,4 +158,34 @@ def register_events(socketio: SocketIO):
 
         user.answer = data["answer"]
         user.save()
-        
+
+
+    @socketio.on("verify")
+    def handle_verify(data: dict):
+        user: AnonymousUser | None = AnonymousUser.get(data["token"])
+        if not user: return
+
+        room = Room.get(user.room_id)
+        if not room: return
+
+        answer = evaluate_rules(data["rules"])
+        user.answer = str(answer)
+        user.save()
+
+        print(answer)
+
+
+    @socketio.on("next")
+    def handle_next(token: str):
+        user: AnonymousUser | None = AnonymousUser.get(token)
+        if not user: return
+
+        room = Room.get(user.room_id)
+        if not room: return
+        if user.id != room.creator.id: return
+        if room.state != GameState.ROUND_END: return
+
+        room.prepare_next_round()
+        room.save()
+
+        socketio.start_background_task(start_next_round, room.serialize())

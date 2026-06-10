@@ -17,8 +17,11 @@ body.verify {
         flex: 1;
     }
 }
-body:not(.verify) .operators {
-    display: none;
+body:not(.verify) {
+    .operators,
+    .rules {
+        display: none;
+    }
 }
 body.verify {
     .bar {
@@ -27,6 +30,24 @@ body.verify {
     .rule {
         display: flex;
     }
+}
+
+.teams {
+    position: fixed;
+    top: 0;
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px;
+    pointer-events: none;
+}
+.team {
+    border: 4px solid #182b54;
+    background: #0100c4;
+    padding: 4px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
 }
 
 .state {
@@ -38,6 +59,7 @@ body.verify {
 .state.center {
     max-width: 800px;
     margin: 0 auto;
+    padding: 60px 10px;
 }
 .state.active {
     display: block;

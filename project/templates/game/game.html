@@ -4,7 +4,7 @@
     {% assets "game_js" %}
         <script>
             const PLAYER = {{ current_user.serialize_player()|tojson|safe }};
-            const GAME = {{ room.serialize_game()|tojson|safe }};
+            let GAME = {{ room.serialize_game()|tojson|safe }};
 
         </script>
         <script src="{{ ASSET_URL }}"></script>
@@ -16,6 +16,11 @@
 {% endblock %}
 
 {% block content %}
+    <div class="teams">
+        <div class="team" id="team-1"></div>
+        <div class="team" id="team-2"></div>
+    </div>
+
     <div class="input submit" id="submit">
         <div class="timer"><div class="bar"></div></div>
 
@@ -81,10 +86,7 @@
                 <div class="entity" onclick="game.addRule()">=</div>
             </div>
 
-            <div class="entities" style="width:402px;" id="number-entities">
-                <div class="entity" onclick="game.verifyToggle(this, false)">100</div>
-                <div class="entity" onclick="game.verifyToggle(this, false)">3</div>
-            </div>
+            <div class="entities" style="width:402px;" id="number-entities"></div>
             
             <div class="entities operators" style="width:270px;">
                 <div class="entity" onclick="game.verifyToggle(this, true)">+</div>

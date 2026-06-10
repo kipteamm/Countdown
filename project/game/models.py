@@ -17,6 +17,7 @@ class GameState(e.Enum):
     ROUND_COUNTDOWN = 5
     ROUND_ANSWER = 6
     ROUND_REVEAL = 7
+    ROUND_END = 8
 
 
 class RoundDict(t.TypedDict):
@@ -261,6 +262,8 @@ class Room:
         else:
             return self._conundrum()
 
+        self.round_number += 1
+
         if self.round["game_mode"] == 0:
             self.round["game_data"] = self._letters_round()
             return
@@ -330,7 +333,7 @@ class Room:
             player.answer = None
             player.save()
 
-        answers.sort(key=lambda x: x[2])
+        answers.sort(key=lambda x: x[2], reverse=True)
 
         print("[ANSWERS]", answers)
 
@@ -339,15 +342,15 @@ class Room:
             # Add 18 if a word of 9, otherwise the length of the word
             room[f"team_{answers[0][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
             room[f"team_{answers[1][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
+            socketio.emit("round_result", answers[:2], to=room["id"])
 
         elif len(answers) == 1:
             room[f"team_{answers[0][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
-
-        socketio.emit("round_result", answers, to=room["id"])
+            socketio.emit("round_result", answers[:1], to=room["id"])
 
 
     @classmethod
-    def _evaluate_numbers(cls, room: RoomDict) -> None:
+    def _evaluate_numbers(cls, room: RoomDict, verified: bool) -> None:
         answers = []
 
         for id in room["player_ids"]:
@@ -355,13 +358,15 @@ class Room:
             if player.answer == None: continue
 
             try:
-                points = abs(room["round_private"]["TARGET"][0] - (int(player.answer) or 0))
+                # Your points are equal to (10 - | target - answer |) -> bang on = 10, and goes down from there
+                # Can not be lower than 0 points. Only solutions worth more than 0 are verified
+                points = max(10 - abs(room["round_private"]["TARGET"][0] - (int(player.answer) or 0)), 0)
             except:
                 player.answer = None
                 player.save()
                 continue
 
-            if points <= 10:
+            if points > 0:
                 answers.append((player.player_id, player.team_id, points, player.answer))
 
             player.answer = None
@@ -369,17 +374,21 @@ class Room:
 
         print("[ANSWERS]", answers)
 
+        if verified:
+            socketio.emit("round_result", answers, to=room["id"])
+            return
+
         for i in range(len(answers)):
             socketio.emit("round_verify", answers[i][0], to=room["id"])
 
 
     @classmethod
-    def evaluate_answers(cls, room: RoomDict) -> None:
+    def evaluate_answers(cls, room: RoomDict, verified: bool) -> None:
         if room["round"]["game_mode"] == 0:
             return cls._evaluate_letters(room)
 
         if room["round"]["game_mode"] == 1:
-            return cls._evaluate_numbers(room)        
+            return cls._evaluate_numbers(room, verified)        
 
 
     def save(self) -> None:
@@ -408,5 +417,9 @@ class Room:
             "team_size": self.team_size,
             "state": self.state.name,
             "creator": self.creator.serialize_player(),
+            "team_1": [player.serialize_player() for player in self.team_1],
+            "team_1_points": self.team_1_points,
+            "team_2": [player.serialize_player() for player in self.team_2],
+            "team_2_points": self.team_2_points,
             "players": [player.serialize_player() for player in self.players]
         }
