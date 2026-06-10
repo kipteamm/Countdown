@@ -1,5 +1,6 @@
 from project.extensions import db, cache
 
+from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import Mapped, mapped_column
 from flask_login import UserMixin
 
@@ -79,12 +80,18 @@ class AnonymousUser(UserMixin):
 
 class User(db.Model, AnonymousUser): 
     id = db.Column(db.String(128), primary_key=True)
-    username = db.Column(db.String(30))
-    email: Mapped[str] = mapped_column(unique=True)
+    username = db.Column(db.String(30), unique=True)
+    lower_username = db.Column(db.String(30), unique=True)
+    password = db.Column(db.String(128), nullable=False)
 
-    def __init__(self, email: str) -> None:
-        self.username = email.split("@")[0]
-        self.email = email
+    def __init__(self, username: str, password: str) -> None:
+        self.id = secrets.token_urlsafe(64)
+        self.username = username
+        self.lower_username = username.lower()
+        self.set_password(password)
 
-    def save(self) -> None:
-        db.session.commit()
+    def set_password(self, password):
+        self.password = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password, password)
