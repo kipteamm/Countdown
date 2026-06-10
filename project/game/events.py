@@ -13,7 +13,7 @@ playing_users = {}
 
 
 def start_next_round(room: RoomDict) -> None:
-    socketio.sleep(15)
+    socketio.sleep(10)
 
     socketio.emit("round_start", room["round"], to=room["id"])
 
@@ -168,7 +168,7 @@ def register_events(socketio: SocketIO):
         room = Room.get(user.room_id)
         if not room: return
 
-        answer = evaluate_rules(data["rules"])
+        answer = evaluate_rules(data["rules"], room.round["game_data"])
         user.answer = str(answer)
         user.save()
 

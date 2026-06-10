@@ -1,4 +1,5 @@
-from project.auth.models import AnonymousUserDict, AnonymousUser
+from project.game.conundrums import CONUNDRUMS
+from project.auth.models import AnonymousUser
 from project.extensions import cache, socketio
 from english_words import get_english_words_set
 
@@ -215,10 +216,10 @@ class Room:
             "small": [],
         }
 
-    def _all_round(self) -> None:
+    def _all_round_data(self) -> RoundDict:
         ids = [player.player_id for player in self.players]
-
-        new_round: RoundDict = {
+        
+        return {
             "game_mode": int(not self.round["game_mode"]),
             "round_number": self.round_number,
             "starting_team": ((self.round["starting_team"] + 1) % 2) + 1,
@@ -228,14 +229,32 @@ class Room:
             "game_data": None
         }
 
+    def _all_round(self) -> None:
+        new_round = self._all_round_data()
+
         socketio.emit("round_new", new_round, to=self.id)
         self.round = new_round
 
     def _specific_round(self) -> None:
-        pass
+        new_round = self._all_round_data()
+
+        socketio.emit("round_new", new_round, to=self.id)
+        self.round = new_round
 
     def _conundrum(self) -> None:
-        pass
+        conundrum = random.choice(CONUNDRUMS)
+
+        new_round = self._all_round_data()
+        new_round["game_mode"] = 2
+        new_round["game_data"] = {
+            "conundrum": [conundrum[0], conundrum[2]],
+        }
+        self.round_private = {
+            "CONUNDRUM": [conundrum[1]]
+        }
+        
+        socketio.emit("round_new", new_round, to=self.id)
+        self.round = new_round
     
     def prepare_next_round(self) -> None:
         self.state = GameState.ROUND_NEW
@@ -335,6 +354,8 @@ class Room:
 
         answers.sort(key=lambda x: x[2], reverse=True)
 
+        socketio.emit("round_replies", answers, to=room["id"])
+
         print("[ANSWERS]", answers)
 
         # If both teams compete for the same score in a letters game
@@ -343,11 +364,14 @@ class Room:
             room[f"team_{answers[0][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
             room[f"team_{answers[1][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
             socketio.emit("round_result", answers[:2], to=room["id"])
+            return
 
-        elif len(answers) == 1:
+        if len(answers) == 1:
             room[f"team_{answers[0][1]}_points"] += 18 if answers[0][2] == 9 else answers[0][2]
             socketio.emit("round_result", answers[:1], to=room["id"])
+            return
 
+        socketio.emit("round_result", [], to=room["id"])
 
     @classmethod
     def _evaluate_numbers(cls, room: RoomDict, verified: bool) -> None:
@@ -378,6 +402,7 @@ class Room:
             socketio.emit("round_result", answers, to=room["id"])
             return
 
+        socketio.emit("round_replies", answers, to=room["id"])
         for i in range(len(answers)):
             socketio.emit("round_verify", answers[i][0], to=room["id"])
 

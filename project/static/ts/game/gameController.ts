@@ -69,6 +69,7 @@ enum GameState {
     ROUND_COUNTDOWN,
     ROUND_ANSWER,
     ROUND_VERIFY,
+    ROUND_REPLIES,
 }
 
 function _toState(name: string): GameState {
@@ -77,6 +78,7 @@ function _toState(name: string): GameState {
     if (name === "round-letters") return GameState.ROUND_LETTERS;
     if (name === "round-numbers") return GameState.ROUND_NUMBERS;
     if (name === "round-conundrum") return GameState.ROUND_CONUNDRUM;
+    if (name === "round-replies") return GameState.ROUND_REPLIES;
     throw new TypeError(name);
 }
 
@@ -96,11 +98,14 @@ class GameController {
 
     private team1: HTMLElement | null = null;
     private team2: HTMLElement | null = null;
+    
+    private game: GameState | null = null;
+    private replies: number[][] = [];
 
     private btn: HTMLButtonElement | null = null;
     private entities: HTMLElement | null = null;
     private gameData: GameData | null = null;
-
+    
     private currentRule: HTMLElement | null = null;
 
     constructor() {
@@ -124,6 +129,7 @@ class GameController {
         socket.on("round_end", () => this.roundEnd());
         socket.on("round_verify", (data: number) => this.roundVerify(data));
         socket.on("round_result", (data: number[][]) => this.roundResults(data));
+        socket.on("round_replies", (data: number[][]) => { this.replies = data; });
 
         // Game
         socket.on("game_start", (data: Game) => this.startGame(data));
@@ -190,15 +196,25 @@ class GameController {
         this.stateParents[this.state].classList.add("active");
     }
 
+    private getGameMode(mode: number): GameState {
+        switch (mode) {
+            case 0: return GameState.ROUND_LETTERS;
+            case 1: return GameState.ROUND_NUMBERS;
+            case 2: return GameState.ROUND_CONUNDRUM;
+        }
+
+        throw new TypeError(mode.toString());
+    }
+
     private newRound(data: Round): void {
-        const isLetters = data.game_mode === 0;
-        const state = isLetters? GameState.ROUND_LETTERS: GameState.ROUND_NUMBERS
+        this.game = this.getGameMode(data.game_mode)
+
         const parent = this.stateParents[GameState.ROUND_NEW];
         const everyone = data.player_12 !== null
 
         console.log(data)
 
-        if (state === GameState.ROUND_LETTERS) {
+        if (this.game === GameState.ROUND_LETTERS) {
             parent.innerHTML = `
                 <h2>It is ${playerName(data.starting_player)} turn to pick the letters.</h2>
                 <b>This game is played by ${everyone? "everyone": `${playerName(data.player_11)} and ${playerName(data.player_21)}`}.</b>
@@ -208,7 +224,7 @@ class GameController {
                     longest possible, existing English word with the provided letters.
                 <p>
             `;
-        } else if (state == GameState.ROUND_NUMBERS) {
+        } else if (this.game == GameState.ROUND_NUMBERS) {
             parent.innerHTML = `
                 <h2>${playerName(data.starting_player)} has to pick the numbers.</h2>
                 <b>This game is played by ${everyone? "everyone": `${playerName(data.player_11)} and ${playerName(data.player_21)}`}.</b>
@@ -217,6 +233,15 @@ class GameController {
                     Large numbers consist of 25, 50, 75 and 100, and small numbers are 1 through 10.
                     A random target will be given which you will have to reach by using only ×, +, - and ÷.
                 <p>
+            `;
+        } else {
+            parent.innerHTML = `
+                <h2>Time for todays Crucial Countdown Conundrum!</h2>
+                <b>This game is played by everyone.</b> 
+                <p>
+                    The rules are simple: we are looking for a nine-letter word. 
+                    It'll appear on the board in a completely scrambled-up fashion.
+                </p>
             `;
         }
 
@@ -231,6 +256,16 @@ class GameController {
 
         this.gameData = data.game_data;
         this.updateState(state);
+
+        if (this.game === GameState.ROUND_CONUNDRUM) {
+            const parent = document.getElementById("conundrum")!;
+            
+            for (const letter of this.gameData.conundrum) {
+                parent.innerHTML += `<div class="entity">${letter}</div>`;
+            }
+
+            return;
+        }
 
         // Make options available to starting player
         if (data.starting_player !== PLAYER.player_id) return;
@@ -303,11 +338,28 @@ class GameController {
         }
 
         document.body.classList.add("verify");
-        
+
         setTimeout(() => {
             document.body.classList.remove("verify");
             socket.emit("verify", {token: getCookie("ut")!, rules: this.getRules()});
         }, 20 * 1000);
+    }
+
+    public reset(): void {
+        this.team1!.innerHTML = "";
+        this.team2!.innerHTML = "";
+
+        this.updateTeam();
+
+        document.getElementById("number-target")!.innerText = "000";
+        document.querySelectorAll(".rule").forEach(elm => {
+            this.releaseRule((elm as HTMLElement));
+        });
+
+        this.entities!.innerHTML = "";
+        this.entities = null;
+
+        this.state = this.game!;
     }
 
     private roundResults(data: number[][]): void {
@@ -316,7 +368,6 @@ class GameController {
         if (this.state === GameState.ROUND_VERIFY) {
             document.getElementById("verifying")!.classList.remove("active");
             document.body.classList.remove("verify");
-            this.state = GameState.ROUND_NUMBERS;
         }
 
         for (const entry of data) {
@@ -327,16 +378,30 @@ class GameController {
             GAME.team_2_points += entry[2];
         }
 
-        this.team1!.innerHTML = "";
-        this.team2!.innerHTML = "";
+        this.reset();
+        this.revealReplies();
+        
+        if (GAME.creator.player_id !== PLAYER.player_id) return;
+        setTimeout(() => {
+            console.log("NEXT ROUND");
+            socket.emit("next", getCookie("ut")!);
+        }, 5000);
+    }
 
-        this.updateTeam();
+    private revealReplies(): void {
+        const parent = this.stateParents[GameState.ROUND_REPLIES];
+        parent.innerHTML = "<h2>Let's see what everyone got...</h2>";
+        
+        this.updateState(GameState.ROUND_REPLIES);
 
-        this.entities!.innerHTML = "";
-        this.entities = null;
-
-        console.log("NEXT ROUND");
-        socket.emit("next", getCookie("ut")!);
+        setTimeout(() => {
+            for (const entry of this.replies) {
+                parent.innerHTML += `<div>${playerName(entry[0])} got <b>${entry[3]}</b></div>`
+            }
+            if (!this.replies) {
+                parent.innerHTML += `<div>No one got anything</div>`;
+            }
+        }, 800);
     }
 
     private getRules(): string[] {
@@ -485,6 +550,10 @@ class GameController {
         } else {
             this.currentRule.appendChild(elm);
         }
+    }
+
+    public guessConundrum(): void {
+        socket.emit("guess", getCookie("ut")!);
     }
 }
 

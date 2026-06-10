@@ -77,7 +77,7 @@
         <div class="board">
             <div class="timer"><div class="bar"></div></div>
 
-            <div class="target" id="number-target">XXX</div>
+            <div class="target" id="number-target">000</div>
             
             <div class="rules" id="rules"></div>
 
@@ -101,5 +101,15 @@
             </div>
         </div>
     </div>
-    <div class="state" data-state="round-conundrum"></div>
+    <div class="state{% if room.state.value == 4 %} active{% endif %}" data-state="round-conundrum">
+        <div class="clock">
+            {% include "game/clock.html" %}
+        </div>
+        <div class="board">
+            <div class="entities" style="width:600px;" id="conundrum"></div>
+    
+            <button onclick="game.guessConundrum()">Make a guess</button>
+        </div>
+    </div>
+    <div class="state center" data-state="round-replies"></div>
 {% endblock %}

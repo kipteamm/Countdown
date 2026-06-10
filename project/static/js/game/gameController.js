@@ -19,6 +19,7 @@ var GameState;
     GameState[GameState["ROUND_COUNTDOWN"] = 5] = "ROUND_COUNTDOWN";
     GameState[GameState["ROUND_ANSWER"] = 6] = "ROUND_ANSWER";
     GameState[GameState["ROUND_VERIFY"] = 7] = "ROUND_VERIFY";
+    GameState[GameState["ROUND_REPLIES"] = 8] = "ROUND_REPLIES";
 })(GameState || (GameState = {}));
 function _toState(name) {
     if (name === "waiting")
@@ -31,6 +32,8 @@ function _toState(name) {
         return GameState.ROUND_NUMBERS;
     if (name === "round-conundrum")
         return GameState.ROUND_CONUNDRUM;
+    if (name === "round-replies")
+        return GameState.ROUND_REPLIES;
     throw new TypeError(name);
 }
 function playerName(id) {
@@ -47,6 +50,8 @@ class GameController {
         this.state = GameState.WAITING;
         this.team1 = null;
         this.team2 = null;
+        this.game = null;
+        this.replies = [];
         this.btn = null;
         this.entities = null;
         this.gameData = null;
@@ -69,6 +74,7 @@ class GameController {
         socket.on("round_end", () => this.roundEnd());
         socket.on("round_verify", (data) => this.roundVerify(data));
         socket.on("round_result", (data) => this.roundResults(data));
+        socket.on("round_replies", (data) => { this.replies = data; });
         // Game
         socket.on("game_start", (data) => this.startGame(data));
         socket.on("connect", () => {
@@ -122,13 +128,20 @@ class GameController {
         console.log(`[STATE] ${state}`);
         this.stateParents[this.state].classList.add("active");
     }
+    getGameMode(mode) {
+        switch (mode) {
+            case 0: return GameState.ROUND_LETTERS;
+            case 1: return GameState.ROUND_NUMBERS;
+            case 2: return GameState.ROUND_CONUNDRUM;
+        }
+        throw new TypeError(mode.toString());
+    }
     newRound(data) {
-        const isLetters = data.game_mode === 0;
-        const state = isLetters ? GameState.ROUND_LETTERS : GameState.ROUND_NUMBERS;
+        this.game = this.getGameMode(data.game_mode);
         const parent = this.stateParents[GameState.ROUND_NEW];
         const everyone = data.player_12 !== null;
         console.log(data);
-        if (state === GameState.ROUND_LETTERS) {
+        if (this.game === GameState.ROUND_LETTERS) {
             parent.innerHTML = `
                 <h2>It is ${playerName(data.starting_player)} turn to pick the letters.</h2>
                 <b>This game is played by ${everyone ? "everyone" : `${playerName(data.player_11)} and ${playerName(data.player_21)}`}.</b>
@@ -139,7 +152,7 @@ class GameController {
                 <p>
             `;
         }
-        else if (state == GameState.ROUND_NUMBERS) {
+        else if (this.game == GameState.ROUND_NUMBERS) {
             parent.innerHTML = `
                 <h2>${playerName(data.starting_player)} has to pick the numbers.</h2>
                 <b>This game is played by ${everyone ? "everyone" : `${playerName(data.player_11)} and ${playerName(data.player_21)}`}.</b>
@@ -150,6 +163,16 @@ class GameController {
                 <p>
             `;
         }
+        else {
+            parent.innerHTML = `
+                <h2>Time for todays Crucial Countdown Conundrum!</h2>
+                <b>This game is played by everyone.</b> 
+                <p>
+                    The rules are simple: we are looking for a nine-letter word. 
+                    It'll appear on the board in a completely scrambled-up fashion.
+                </p>
+            `;
+        }
         this.updateState(GameState.ROUND_NEW);
     }
     roundStart(data) {
@@ -158,6 +181,13 @@ class GameController {
         console.log(data);
         this.gameData = data.game_data;
         this.updateState(state);
+        if (this.game === GameState.ROUND_CONUNDRUM) {
+            const parent = document.getElementById("conundrum");
+            for (const letter of this.gameData.conundrum) {
+                parent.innerHTML += `<div class="entity">${letter}</div>`;
+            }
+            return;
+        }
         // Make options available to starting player
         if (data.starting_player !== PLAYER.player_id)
             return;
@@ -221,12 +251,23 @@ class GameController {
             socket.emit("verify", { token: getCookie("ut"), rules: this.getRules() });
         }, 20 * 1000);
     }
+    reset() {
+        this.team1.innerHTML = "";
+        this.team2.innerHTML = "";
+        this.updateTeam();
+        document.getElementById("number-target").innerText = "000";
+        document.querySelectorAll(".rule").forEach(elm => {
+            this.releaseRule(elm);
+        });
+        this.entities.innerHTML = "";
+        this.entities = null;
+        this.state = this.game;
+    }
     roundResults(data) {
         console.log(data);
         if (this.state === GameState.ROUND_VERIFY) {
             document.getElementById("verifying").classList.remove("active");
             document.body.classList.remove("verify");
-            this.state = GameState.ROUND_NUMBERS;
         }
         for (const entry of data) {
             if (entry[1] === 1) {
@@ -235,13 +276,27 @@ class GameController {
             }
             GAME.team_2_points += entry[2];
         }
-        this.team1.innerHTML = "";
-        this.team2.innerHTML = "";
-        this.updateTeam();
-        this.entities.innerHTML = "";
-        this.entities = null;
-        console.log("NEXT ROUND");
-        socket.emit("next", getCookie("ut"));
+        this.reset();
+        this.revealReplies();
+        if (GAME.creator.player_id !== PLAYER.player_id)
+            return;
+        setTimeout(() => {
+            console.log("NEXT ROUND");
+            socket.emit("next", getCookie("ut"));
+        }, 5000);
+    }
+    revealReplies() {
+        const parent = this.stateParents[GameState.ROUND_REPLIES];
+        parent.innerHTML = "<h2>Let's see what everyone got...</h2>";
+        this.updateState(GameState.ROUND_REPLIES);
+        setTimeout(() => {
+            for (const entry of this.replies) {
+                parent.innerHTML += `<div>${playerName(entry[0])} got <b>${entry[3]}</b></div>`;
+            }
+            if (!this.replies) {
+                parent.innerHTML += `<div>No one got anything</div>`;
+            }
+        }, 800);
     }
     getRules() {
         const rules = [];
@@ -369,6 +424,9 @@ class GameController {
         else {
             this.currentRule.appendChild(elm);
         }
+    }
+    guessConundrum() {
+        socket.emit("guess", getCookie("ut"));
     }
 }
 const socket = io("", {
