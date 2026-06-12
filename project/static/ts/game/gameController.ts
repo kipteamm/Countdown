@@ -437,7 +437,7 @@ class GameController {
                 const reply = this.replies[i];
                 const result = (this.results[i] || [0, 0, 0, 0]);
 
-                parent.innerHTML += `<div>${playerName(reply[0])} got <b>${reply[3]}${result[2] > 0? `&emsp;(+${result[2]})`: ""}</b></div>`;
+                parent.innerHTML += `<div>${playerName(reply[0])} got <b>${reply[3]}&emsp;(+${result[2]})</b></div>`;
             }
             if (!this.replies) {
                 parent.innerHTML += `<div>No one got anything</div>`;

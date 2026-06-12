@@ -115,6 +115,7 @@ def register_events(socketio: SocketIO):
         user: AnonymousUser | None = AnonymousUser.get(token)
         if not user: return
 
+        print("[READY]", user.username)
         user.ready = True
         user.save()
 
@@ -123,7 +124,9 @@ def register_events(socketio: SocketIO):
         if not room: return print("IMPOSSIBLE")
 
         for player in room.players:
-            if not player.ready: return
+            if not player.ready: 
+                print("[AWAITING]", user.username)
+                return
 
         if room.state != GameState.WAITING: return
 

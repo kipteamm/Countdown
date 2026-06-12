@@ -11,8 +11,7 @@ def evaluate_rules(rules: list[str], numbers: dict[str, list]) -> int:
         if not re.match(r"^[0-9+\-*/]+$", rule): return -1
 
         parts = re.split(r'[+\-*/]', rule)
-        if len(parts) != 2:
-            return -1
+        if len(parts) != 2: return -1
 
         val1, val2 = int(parts[0]), int(parts[1])
 
@@ -24,7 +23,7 @@ def evaluate_rules(rules: list[str], numbers: dict[str, list]) -> int:
 
         res = eval(rule)
 
-        if res <= 0 or not isinstance(res, int) or ('/' in rule and val1 % val2 != 0): return -1
+        if res <= 0 or round(res) != res: return -1
 
         pool.append(res)
         final_res = res
