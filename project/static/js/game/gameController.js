@@ -287,8 +287,8 @@ class GameController {
         setTimeout(() => {
             const parent = this.stateParents[GameState.ROUND_REPLIES];
             parent.innerHTML = "<h2>Final scores</h2>";
-            parent.innerHTML += `<div>${GAME.team_1.map(player => { player.username; }).join(" & ")} got: <b>${GAME.team_1_points}</b></div>`;
-            parent.innerHTML += `<div>${GAME.team_2.map(player => { player.username; }).join(" & ")} got: <b>${GAME.team_2_points}</b></div>`;
+            parent.innerHTML += `<div>${GAME.team_1.map(player => player.username).join(" & ")} got: <b>${GAME.team_1_points}</b></div>`;
+            parent.innerHTML += `<div>${GAME.team_2.map(player => player.username).join(" & ")} got: <b>${GAME.team_2_points}</b></div>`;
             this.updateState(GameState.ROUND_REPLIES);
         }, 4000 + revealTimout);
     }
@@ -461,7 +461,7 @@ class GameController {
     }
     guessConundrum(btn) {
         const guess = document.getElementById("conundrum-guess").value;
-        socket.emit("guess", { token: getCookie("ut"), guess: guess });
+        socket.emit("guess", { token: getCookie("ut"), answer: guess });
         let timer = 5;
         btn.disabled = true;
         btn.innerText = `${timer}..`;
